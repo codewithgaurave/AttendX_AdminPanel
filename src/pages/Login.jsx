@@ -47,6 +47,38 @@ export default function Login() {
       }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          {/* Back button */}
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                background: 'none',
+                border: '1.5px solid var(--border)',
+                borderRadius: 4,
+                padding: 8,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                color: 'var(--ink2)',
+                fontSize: 12,
+                fontWeight: 600,
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.borderColor = 'var(--ink)';
+                e.target.style.color = 'var(--ink)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.borderColor = 'var(--border)';
+                e.target.style.color = 'var(--ink2)';
+              }}
+            >
+              <ArrowLeft size={14} />
+              Back to Home
+            </button>
+          </div>
+          
           <div style={{ 
             fontFamily: 'Syne, sans-serif', 
             fontSize: 28, 
