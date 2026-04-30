@@ -21,15 +21,20 @@ function App() {
 function ProtectedRoute({ children }) {
   const { auth } = useAuth();
   
+  console.log('ProtectedRoute - auth state:', auth);
+  
   if (!auth?.token) {
+    console.log('No token, redirecting to login');
     return <Navigate to="/login" replace />;
   }
   
   // Only allow admin role
-  if (auth.user?.role !== 'admin') {
+  if (auth.role !== 'admin') {
+    console.log('Wrong role:', auth.role, 'redirecting to login');
     return <Navigate to="/login" replace />;
   }
   
+  console.log('Auth successful, rendering dashboard');
   return children;
 }
 

@@ -16,9 +16,15 @@ export default function Login() {
       return toast('Please fill all fields');
     }
 
+    console.log('Starting login process...');
     const success = await login(form.phone, form.password, 'admin');
+    console.log('Login result:', success);
+    
     if (success) {
+      console.log('Login successful, navigating to dashboard...');
       navigate('/dashboard');
+    } else {
+      console.log('Login failed');
     }
   };
 
