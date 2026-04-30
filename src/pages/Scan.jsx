@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, MapPin, User, CheckCircle, XCircle, Clock, Navigation, AlertTriangle, RefreshCw, Home, LogIn, LogOut } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../utils/api';
 import { avt, fmtTime } from '../utils/api';
 import { toast } from '../components/Toast';
+
+const { ArrowLeft, Camera, MapPin, User, CheckCircle, XCircle, Clock, Navigation, AlertTriangle, RefreshCw, Home, LogIn, LogOut } = LucideIcons;
 
 const STEPS = { camera: 1, gps: 2, pick: 3, setpin: 4, selfie: 5, auto: 2, done: 6, blocked: 2 };
 const LABELS = { camera: 'Scan QR Code', gps: 'Verifying Location', pick: 'Select Your Name', setpin: 'Set Your PIN', selfie: 'Take Selfie', auto: 'Auto Attendance', done: 'Done!', blocked: 'Access Denied' };

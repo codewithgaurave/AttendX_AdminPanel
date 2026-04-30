@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, MapPin } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import PWAInstallButton from '../components/PWAInstallButton';
+
+const { LogIn, MapPin } = LucideIcons;
 
 const getClockStr = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 const getDateStr  = () => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
