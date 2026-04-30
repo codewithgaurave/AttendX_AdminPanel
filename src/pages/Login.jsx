@@ -74,7 +74,7 @@ export default function Login() {
                 e.target.style.color = 'var(--ink2)';
               }}
             >
-              <ArrowLeft size={14} />
+              <span style={{ fontSize: 14, fontWeight: 'bold' }}>←</span>
               Back to Home
             </button>
           </div>
