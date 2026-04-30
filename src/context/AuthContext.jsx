@@ -11,8 +11,10 @@ export function AuthProvider({ children }) {
     const user  = JSON.parse(localStorage.getItem('user') || 'null');
     return token ? { token, role, user } : null;
   });
+  const [loading, setLoading] = useState(false);
 
   const login = async (phoneOrEmail, password, expectedRole = 'admin') => {
+    setLoading(true);
     try {
       const loginData = {
         password,
@@ -35,9 +37,23 @@ export function AuthProvider({ children }) {
       toast(`Welcome back, ${data.user.name}!`);
       return true;
     } catch (error) {
-      const message = error.response?.data?.message || 'Login failed';
+      console.error('Login error:', error);
+      let message = 'Login failed';
+      
+      if (error.code === 'ERR_NETWORK') {
+        message = 'Network error. Please check if server is running.';
+      } else if (error.response?.status === 404) {
+        message = 'User not found';
+      } else if (error.response?.status === 401) {
+        message = 'Invalid credentials';
+      } else if (error.response?.data?.message) {
+        message = error.response.data.message;
+      }
+      
       toast(message);
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -46,7 +62,7 @@ export function AuthProvider({ children }) {
     setAuth(null);
   };
 
-  return <AuthCtx.Provider value={{ auth, login, logout }}>{children}</AuthCtx.Provider>;
+  return <AuthCtx.Provider value={{ auth, login, logout, loading }}>{children}</AuthCtx.Provider>;
 }
 
 export const useAuth = () => useContext(AuthCtx);

@@ -7,8 +7,7 @@ import { Eye, EyeOff, LogIn } from 'lucide-react';
 export default function Login() {
   const [form, setForm] = useState({ phone: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -17,16 +16,9 @@ export default function Login() {
       return toast('Please fill all fields');
     }
 
-    setLoading(true);
-    try {
-      const success = await login(form.phone, form.password, 'admin');
-      if (success) {
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-    } finally {
-      setLoading(false);
+    const success = await login(form.phone, form.password, 'admin');
+    if (success) {
+      navigate('/dashboard');
     }
   };
 
