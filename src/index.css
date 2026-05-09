@@ -125,6 +125,9 @@ tr:hover td { background: var(--surface2); }
 /* ── Toast ── */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 12px 22px; border-radius: 4px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transition: opacity 0.25s; pointer-events: none; white-space: nowrap; }
 .toast.show { opacity: 1; }
+.toast-success { background: var(--success); color: #fff; }
+.toast-error { background: var(--danger); color: #fff; }
+.toast-warning { background: var(--warning); color: #fff; }
 
 /* ── Empty state ── */
 .empty-state { text-align: center; padding: 48px 20px; color: var(--ink2); font-size: 14px; }

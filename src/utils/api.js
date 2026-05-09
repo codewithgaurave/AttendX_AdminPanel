@@ -8,6 +8,25 @@ api.interceptors.request.use(cfg => {
   return cfg;
 });
 
+// Response interceptor for global error handling
+api.interceptors.response.use(
+  response => response,
+  error => {
+    // Log all API errors for debugging
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    // Don't modify the error, just log it
+    // Let individual components handle their specific error cases
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 export const avt = (n = '') => n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();

@@ -28,11 +28,27 @@ export default function Employees() {
         return a.isActive ? -1 : 1;
       });
       setEmployees(sortedEmployees);
-    }).catch(() => setEmployees([]));
+    }).catch((e) => {
+      console.error('Load employees error:', e);
+      setEmployees([]);
+      if (e.response?.status === 403 && e.response.data?.expired) {
+        toast('Your account has expired. Please renew your subscription.');
+      } else if (e.code === 'ERR_NETWORK') {
+        toast('Network error. Please check your connection.');
+      } else {
+        toast('Failed to load employees');
+      }
+    });
     api.get('/admin/offices').then(r => {
       const offices = r.data.offices || r.data || [];
       setOffices(Array.isArray(offices) ? offices : []);
-    }).catch(() => setOffices([]));
+    }).catch((e) => {
+      console.error('Load offices error:', e);
+      setOffices([]);
+      if (e.code !== 'ERR_NETWORK') { // Don't show office error if network is already down
+        toast('Failed to load offices');
+      }
+    });
   };
   useEffect(() => { load(); }, []);
 
@@ -44,9 +60,45 @@ export default function Employees() {
     try {
       if (editId) await api.put(`/admin/employees/${editId}`, form);
       else await api.post('/admin/employees', form);
-      toast(editId ? 'Employee updated ✓' : 'Employee added ✓');
+      toast(editId ? 'Employee updated ✓' : 'Employee added ✓', 3000, 'success');
       setShowModal(false); setForm(emptyForm); setEditId(null); load();
-    } catch (e) { toast(e.response?.data?.message || 'Error'); }
+    } catch (e) { 
+      console.error('Employee save error:', e);
+      let errorMsg = 'Error saving employee';
+      
+      if (e.code === 'ERR_NETWORK') {
+        errorMsg = 'Network error. Please check if server is running.';
+      } else if (e.response?.status === 400) {
+        // Handle validation errors
+        if (e.response.data?.message?.includes('validation failed')) {
+          if (e.response.data.message.includes('gender')) {
+            errorMsg = 'Please select a valid gender or leave it empty';
+          } else if (e.response.data.message.includes('employeeCode')) {
+            errorMsg = 'Employee code already exists. Please use a different code.';
+          } else {
+            errorMsg = 'Validation error: ' + (e.response.data.message || 'Invalid data');
+          }
+        } else if (e.response.data?.message?.includes('already exists')) {
+          errorMsg = e.response.data.message;
+        } else if (e.response.data?.message?.includes('Maximum')) {
+          errorMsg = e.response.data.message;
+        } else {
+          errorMsg = e.response.data?.message || 'Invalid data provided';
+        }
+      } else if (e.response?.status === 403) {
+        if (e.response.data?.expired) {
+          errorMsg = 'Your account has expired. Please renew your subscription.';
+        } else {
+          errorMsg = e.response.data?.message || 'Access denied';
+        }
+      } else if (e.response?.status === 500) {
+        errorMsg = 'Server error. Please try again or contact support.';
+      } else if (e.response?.data?.message) {
+        errorMsg = e.response.data.message;
+      }
+      
+      toast(errorMsg, 4000, 'error');
+    }
   };
 
   const deactivate = async (id, name) => {
@@ -63,21 +115,41 @@ export default function Employees() {
       color: '#1a1612',
     });
     if (!result.isConfirmed) return;
-    await api.patch(`/admin/employees/${id}/deactivate`);
-    toast(`${name} deactivated`); load();
+    try {
+      await api.patch(`/admin/employees/${id}/deactivate`);
+      toast(`${name} deactivated`, 3000, 'success');
+      load();
+    } catch (e) {
+      console.error('Deactivate error:', e);
+      const errorMsg = e.response?.data?.message || 'Failed to deactivate employee';
+      toast(errorMsg, 4000, 'error');
+    }
   };
 
   const activate = async (id, name) => {
-    await api.patch(`/admin/employees/${id}/activate`);
-    toast(`${name} activated`); load();
+    try {
+      await api.patch(`/admin/employees/${id}/activate`);
+      toast(`${name} activated`, 3000, 'success');
+      load();
+    } catch (e) {
+      console.error('Activate error:', e);
+      const errorMsg = e.response?.data?.message || 'Failed to activate employee';
+      toast(errorMsg, 4000, 'error');
+    }
   };
 
   const saveWH = async () => {
     if (!whModal) return;
     try {
       await api.patch(`/admin/employees/${whModal._id}/working-hours`, whModal.workingHours);
-      toast('Working hours updated ✓'); setWhModal(null); load();
-    } catch { toast('Error'); }
+      toast('Working hours updated ✓', 3000, 'success');
+      setWhModal(null);
+      load();
+    } catch (e) {
+      console.error('Working hours update error:', e);
+      const errorMsg = e.response?.data?.message || 'Failed to update working hours';
+      toast(errorMsg, 4000, 'error');
+    }
   };
 
   const openEdit = (e) => {
