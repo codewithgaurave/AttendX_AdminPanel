@@ -75,34 +75,57 @@ export default function Scan() {
     if (!geoResult) return;
     if (geoResult.ok) {
       setTimeout(() => {
-        // Check if user has PIN stored locally
-        const storedPin = localStorage.getItem(`attendx_pin_${adminId}`);
-        const storedEmployee = localStorage.getItem(`attendx_employee_${adminId}`);
-        if (storedPin && storedEmployee) {
-          const employee = JSON.parse(storedEmployee);
-          setSelEmp(employee);
-          if (employee.selfieRequired) {
-            setStep('selfie');
-          } else {
-            setStep('auto');
-            markSmartAttendance(employee);
-          }
-        } else {
-          // First time user, show employee list
-          console.log('Fetching employees for adminId:', adminId);
-          api.get(`/attendance/employees/${adminId}`)
-            .then(r => { 
-              console.log('Employees fetched successfully:', r.data);
-              setEmployees(r.data); 
-              setStep('pick'); 
-            })
-            .catch(error => {
-              console.error('Failed to fetch employees:', error);
-              toast('Failed to load employees. Please try again.');
-              setStep('blocked');
-              setBlockedInfo({ error: 'Failed to load employee list' });
-            });
-        }
+        // Always fetch fresh employee data first
+        console.log('Fetching employees for adminId:', adminId);
+        api.get(`/attendance/employees/${adminId}`)
+          .then(r => { 
+            console.log('Employees fetched successfully:', r.data);
+            setEmployees(r.data);
+            
+            // Check if user has PIN stored locally
+            const storedPin = localStorage.getItem(`attendx_pin_${adminId}`);
+            const storedEmployeeData = localStorage.getItem(`attendx_employee_${adminId}`);
+            
+            if (storedPin && storedEmployeeData) {
+              try {
+                const storedEmployee = JSON.parse(storedEmployeeData);
+                // Find the employee in fresh data to ensure it still exists
+                const currentEmployee = r.data.find(emp => emp._id === storedEmployee._id);
+                
+                if (currentEmployee) {
+                  console.log('Found existing employee, proceeding with auto attendance:', currentEmployee.name);
+                  setSelEmp(currentEmployee);
+                  if (currentEmployee.selfieRequired) {
+                    setStep('selfie');
+                  } else {
+                    setStep('auto');
+                    markSmartAttendance(currentEmployee);
+                  }
+                } else {
+                  console.log('Stored employee not found in current list, showing employee selection');
+                  // Clear invalid stored data
+                  localStorage.removeItem(`attendx_pin_${adminId}`);
+                  localStorage.removeItem(`attendx_employee_${adminId}`);
+                  setStep('pick');
+                }
+              } catch (error) {
+                console.error('Error parsing stored employee data:', error);
+                // Clear corrupted data
+                localStorage.removeItem(`attendx_pin_${adminId}`);
+                localStorage.removeItem(`attendx_employee_${adminId}`);
+                setStep('pick');
+              }
+            } else {
+              console.log('No stored PIN/employee found, showing employee selection');
+              setStep('pick');
+            }
+          })
+          .catch(error => {
+            console.error('Failed to fetch employees:', error);
+            toast('Failed to load employees. Please try again.');
+            setStep('blocked');
+            setBlockedInfo({ error: 'Failed to load employee list' });
+          });
       }, 1000);
     } else {
       setBlockedInfo({ error: geoResult.error });
@@ -328,7 +351,15 @@ function PickStep({ employees, search, setSearch, geoResult, onPick, loading }) 
       </div>
       <input className="form-inp" placeholder="Search your name..." value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 10 }} disabled={loading} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
-        {employees.length === 0 && <div className="empty-state"><User size={32} style={{ margin: '0 auto 8px', display: 'block', color: 'var(--ink2)' }} /><div>No employees found</div></div>}
+        {employees.length === 0 && (
+          <div className="empty-state">
+            <User size={32} style={{ margin: '0 auto 8px', display: 'block', color: 'var(--ink2)' }} />
+            <div style={{ marginBottom: 8 }}>No employees found</div>
+            <div style={{ fontSize: 11, color: 'var(--ink2)', textAlign: 'center' }}>
+              {search ? 'Try a different search term' : 'Employee list may be empty or failed to load'}
+            </div>
+          </div>
+        )}
         {employees.map(e => (
           <div key={e._id} onClick={() => !loading && onPick(e)}
             style={{ 
