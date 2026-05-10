@@ -89,10 +89,19 @@ export default function Scan() {
           }
         } else {
           // First time user, show employee list
-          api.get(`/attendance/employees/${adminId}`).then(r => { 
-            setEmployees(r.data); 
-            setStep('pick'); 
-          });
+          console.log('Fetching employees for adminId:', adminId);
+          api.get(`/attendance/employees/${adminId}`)
+            .then(r => { 
+              console.log('Employees fetched successfully:', r.data);
+              setEmployees(r.data); 
+              setStep('pick'); 
+            })
+            .catch(error => {
+              console.error('Failed to fetch employees:', error);
+              toast('Failed to load employees. Please try again.');
+              setStep('blocked');
+              setBlockedInfo({ error: 'Failed to load employee list' });
+            });
         }
       }, 1000);
     } else {
@@ -103,6 +112,7 @@ export default function Scan() {
 
   const markSmartAttendance = async (employee) => {
     if (!employee || !geoResult) return;
+    console.log('Starting markSmartAttendance for:', employee.name);
     setLoading(true);
     try {
       const attendanceData = { 
@@ -116,13 +126,23 @@ export default function Scan() {
         attendanceData.selfieImage = selfieData;
       }
       
+      console.log('Sending attendance data:', attendanceData);
       const { data } = await api.post('/attendance/smart', attendanceData);
+      console.log('Attendance marked successfully:', data);
       setDoneData({ type: data.action === 'punch-in' ? 'in' : 'out', data, emp: employee });
       setStep('done');
     } catch (e) {
-      if (e.response?.status === 403) { setBlockedInfo(e.response.data); setStep('blocked'); }
-      else toast(e.response?.data?.message || 'Error');
-    } finally { setLoading(false); }
+      console.error('Attendance marking failed:', e);
+      if (e.response?.status === 403) { 
+        setBlockedInfo(e.response.data); 
+        setStep('blocked'); 
+      } else {
+        toast(e.response?.data?.message || 'Failed to mark attendance. Please try again.');
+        setStep('pick'); // Go back to employee selection
+      }
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleEmployeeSelect = (employee) => {
@@ -264,7 +284,14 @@ function GPSStep({ geoResult }) {
         <div className="gps-radar-dot" style={{ background: geoResult ? (geoResult.ok ? 'var(--success)' : 'var(--danger)') : 'var(--accent2)' }} />
       </div>
       {!geoResult && <div style={{ fontSize: 13, color: 'var(--warning)', fontWeight: 600 }}>Detecting location…</div>}
-      {geoResult?.ok && <div style={{ fontSize: 13, color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><CheckCircle size={16} />Location verified!</div>}
+      {geoResult?.ok && (
+        <div style={{ fontSize: 13, color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
+          <CheckCircle size={16} />Location verified!
+        </div>
+      )}
+      {geoResult?.ok && (
+        <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>Loading employees...</div>
+      )}
     </div>
   );
 }
