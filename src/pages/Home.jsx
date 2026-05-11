@@ -23,7 +23,7 @@ export default function Home() {
           {/* Header */}
           <div style={{ background: 'var(--ink)', padding: '28px 32px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 32, fontWeight: 800, color: 'var(--bg)', letterSpacing: -1 }}>
-              Attend<span style={{ color: 'var(--accent)' }}>X</span>
+              Atten<span style={{ color: 'var(--accent)' }}>Zo</span>
             </div>
             <div style={{ fontSize: 12, color: '#888', marginTop: 4, textTransform: 'uppercase', letterSpacing: 2, fontFamily: 'DM Mono, monospace' }}>
               Admin Portal
