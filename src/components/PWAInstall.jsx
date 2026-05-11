@@ -118,7 +118,7 @@ export default function PWAInstall() {
         </div>
         <div>
           <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
-            Install AttendX App
+            Install AttenZo App
           </div>
           <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>
             Get quick access from your home screen

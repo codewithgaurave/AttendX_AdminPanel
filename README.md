@@ -1,4 +1,4 @@
-# AttendanceX - Admin Portal
+# AttenZo - Admin Portal
 
 Admin portal for attendance management, QR scanning, and employee management.
 
@@ -25,7 +25,7 @@ npm run build
 ```
 
 ## Deployment
-This app should be deployed to `admin.attendx.com` subdomain.
+This app should be deployed to `admin.attenzo.com` subdomain.
 
 ## Role Access
 - Only Admin role users can access this portal

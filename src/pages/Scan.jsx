@@ -83,8 +83,8 @@ export default function Scan() {
             setEmployees(r.data);
             
             // Check if user has PIN stored locally
-            const storedPin = localStorage.getItem(`attendx_pin_${adminId}`);
-            const storedEmployeeData = localStorage.getItem(`attendx_employee_${adminId}`);
+            const storedPin = localStorage.getItem(`attenzo_pin_${adminId}`);
+            const storedEmployeeData = localStorage.getItem(`attenzo_employee_${adminId}`);
             
             if (storedPin && storedEmployeeData) {
               try {
@@ -104,15 +104,15 @@ export default function Scan() {
                 } else {
                   console.log('Stored employee not found in current list, showing employee selection');
                   // Clear invalid stored data
-                  localStorage.removeItem(`attendx_pin_${adminId}`);
-                  localStorage.removeItem(`attendx_employee_${adminId}`);
+                  localStorage.removeItem(`attenzo_pin_${adminId}`);
+                  localStorage.removeItem(`attenzo_employee_${adminId}`);
                   setStep('pick');
                 }
               } catch (error) {
                 console.error('Error parsing stored employee data:', error);
                 // Clear corrupted data
-                localStorage.removeItem(`attendx_pin_${adminId}`);
-                localStorage.removeItem(`attendx_employee_${adminId}`);
+                localStorage.removeItem(`attenzo_pin_${adminId}`);
+                localStorage.removeItem(`attenzo_employee_${adminId}`);
                 setStep('pick');
               }
             } else {
@@ -183,8 +183,8 @@ export default function Scan() {
       toast('PINs do not match');
       return;
     }
-    localStorage.setItem(`attendx_pin_${adminId}`, newPin);
-    localStorage.setItem(`attendx_employee_${adminId}`, JSON.stringify(selEmp));
+    localStorage.setItem(`attenzo_pin_${adminId}`, newPin);
+    localStorage.setItem(`attenzo_employee_${adminId}`, JSON.stringify(selEmp));
     toast('PIN set successfully!');
     
     if (selEmp.selfieRequired) {
