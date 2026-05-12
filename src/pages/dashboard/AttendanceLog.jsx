@@ -226,7 +226,11 @@ function CalendarView({ adminId }) {
                   {/* Employee Records */}
                   {selectedDayData.records.length > 0 ? (
                     <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                      <MiniTable rows={selectedDayData.records.filter(r => selOffice === 'all' || r.office === offices.find(o => o._id === selOffice)?.name)} />
+                      <MiniTable 
+                        rows={selectedDayData.records.filter(r => selOffice === 'all' || r.office === offices.find(o => o._id === selOffice)?.name)} 
+                        date={selectedDate.toISOString().split('T')[0]}
+                        onMarkAttendance={() => load()}
+                      />
                     </div>
                   ) : (
                     <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink2)', fontSize: 13 }}>No records for this day</div>
@@ -366,20 +370,20 @@ function DateView({ adminId }) {
 
   const markAttendance = async (employeeId, status) => {
     try {
+      console.log('Marking attendance:', { employeeId, date, status });
       await api.post('/attendance/mark', { employeeId, date, status });
-      toast(`Marked as ${status}`);
+      toast(`Marked as ${status}`, 3000, 'success');
       // Reload the report data
       setLoading(true);
-      api.get(`/attendance/report/${adminId}?date=${date}`)
-        .then(r => setReport(r.data))
-        .catch(err => {
-          console.error('Error reloading report:', err);
-          toast('Error reloading data');
-        })
-        .finally(() => setLoading(false));
+      const response = await api.get(`/attendance/report/${adminId}?date=${date}`);
+      setReport(response.data);
+      console.log('Report reloaded successfully');
     } catch (e) { 
       console.error('Mark attendance error:', e);
-      toast(e.response?.data?.message || 'Error marking attendance'); 
+      const errorMsg = e.response?.data?.message || 'Error marking attendance';
+      toast(errorMsg, 4000, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -836,7 +840,11 @@ function RangeView({ adminId }) {
 
                     {selectedDayData.records.length > 0 ? (
                       <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                        <MiniTable rows={selectedDayData.records.filter(r => selOffice === 'all' || r.office === offices.find(o => o._id === selOffice)?.name)} />
+                        <MiniTable 
+                          rows={selectedDayData.records.filter(r => selOffice === 'all' || r.office === offices.find(o => o._id === selOffice)?.name)} 
+                          date={selectedDate.toISOString().split('T')[0]}
+                          onMarkAttendance={() => load()}
+                        />
                       </div>
                     ) : (
                       <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink2)', fontSize: 13 }}>No records for this day</div>
@@ -932,7 +940,11 @@ function DayAccordion({ day, expanded, setExpanded }) {
       {isOpen && (
         <div style={{ overflowX: 'auto', borderTop: '1px solid var(--border)' }}>
           {day.records.length > 0
-            ? <MiniTable rows={day.records} />
+            ? <MiniTable 
+                rows={day.records} 
+                date={day.date}
+                onMarkAttendance={() => {}} 
+              />
             : <div style={{ padding: '12px 20px', fontSize: 13, color: 'var(--ink2)' }}>No records for this day</div>}
         </div>
       )}
@@ -1100,7 +1112,31 @@ function showSelfie(name, type, selfie, time, location) {
   });
 }
 
-function AttTable({ rows, title, loading, onMarkAttendance }) {
+function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }) {
+  const [updatingStatus, setUpdatingStatus] = useState({});
+
+  const handleStatusUpdate = async (employeeId, newStatus, currentStatus) => {
+    if (currentStatus === newStatus) {
+      toast(`Employee already marked as ${newStatus}`, 2000, 'warning');
+      return;
+    }
+
+    setUpdatingStatus(prev => ({ ...prev, [employeeId]: newStatus }));
+    
+    try {
+      if (onMarkAttendance) {
+        await onMarkAttendance(employeeId, newStatus);
+      } else {
+        toast('Status update not available in this view', 3000, 'error');
+      }
+    } catch (error) {
+      console.error('Status update error:', error);
+      toast('Failed to update status', 3000, 'error');
+    } finally {
+      setUpdatingStatus(prev => ({ ...prev, [employeeId]: undefined }));
+    }
+  };
+
   return (
     <div className="tbl-wrap" style={{ overflowX: 'auto' }}>
       <div className="tbl-head-row">
@@ -1110,66 +1146,124 @@ function AttTable({ rows, title, loading, onMarkAttendance }) {
       <table>
         <thead><tr>
           <th>Employee</th><th>Check In</th><th>In Photo</th><th>Check Out</th><th>Out Photo</th>
-          <th>Hours</th><th>Late</th><th>GPS</th><th>Status</th><th>Actions</th>
+          <th>Hours</th><th>Late</th><th>GPS</th><th>Status</th>
+          {showActions && onMarkAttendance && <th>Actions</th>}
         </tr></thead>
         <tbody>
-          {loading && <tr><td colSpan={10}><EmptyState icon={<Loader size={28} />} text="Loading…" /></td></tr>}
-          {!loading && rows.map((r, i) => (
-            <tr key={r.employeeId + i}>
-              <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="emp-avt" style={{ width: 28, height: 28, fontSize: 11 }}>{avt(r.name || '')}</div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{r.employeeCode}</div>
-                </div>
-              </div></td>
-              <td><span className="time-tag">{r.checkInTime || '—'}</span></td>
-              <td>
-                <button onClick={() => showSelfie(r.name, 'In', r.checkInSelfie, r.checkInTime, r.checkInLocation)}
-                  style={{ background: r.checkInSelfie ? '#e8f5ee' : 'var(--surface2)', border: `1px solid ${r.checkInSelfie ? '#b8dcc8' : 'var(--border)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'DM Mono, monospace', fontWeight: 700, color: r.checkInSelfie ? 'var(--success)' : 'var(--ink2)' }}>
-                  <Camera size={11} />{r.checkInSelfie ? 'View' : 'None'}
-                </button>
-              </td>
-              <td><span className="time-tag">{r.checkOutTime || '—'}</span></td>
-              <td>
-                {r.checkOutTime
-                  ? <button onClick={() => showSelfie(r.name, 'Out', r.checkOutSelfie, r.checkOutTime, r.checkOutLocation)}
-                      style={{ background: r.checkOutSelfie ? '#e8f5ee' : 'var(--surface2)', border: `1px solid ${r.checkOutSelfie ? '#b8dcc8' : 'var(--border)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'DM Mono, monospace', fontWeight: 700, color: r.checkOutSelfie ? 'var(--success)' : 'var(--ink2)' }}>
-                      <Camera size={11} />{r.checkOutSelfie ? 'View' : 'None'}
-                    </button>
-                  : <span style={{ color: 'var(--border)' }}>—</span>}
-              </td>
-              <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--success)' }}>
-                {r.hoursWorked || (r.checkInTime && !r.checkOutTime ? 'Working…' : '—')}
-              </td>
-              <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--warning)' }}>{r.isLate ? r.lateBy : '—'}</td>
-              <td>{r.checkInLocation
-                ? <span className="gps-ok-tag" style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={11} />{r.checkInDistance}m</span>
-                : <span className="gps-na-tag">—</span>}
-              </td>
-              <td><span className={`badge ${r.status === 'present' ? 'b-in' : r.status === 'half-day' ? 'b-out' : 'b-absent'}`}>{r.status || 'absent'}</span></td>
-              <td>
-                {onMarkAttendance && (
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => onMarkAttendance(r.employeeId, 'present')} 
-                      style={{ padding: '2px 6px', fontSize: 10, border: '1px solid var(--success)', background: r.status === 'present' ? 'var(--success)' : 'transparent', color: r.status === 'present' ? 'white' : 'var(--success)', borderRadius: 3, cursor: 'pointer' }}>
-                      P
-                    </button>
-                    <button onClick={() => onMarkAttendance(r.employeeId, 'half-day')} 
-                      style={{ padding: '2px 6px', fontSize: 10, border: '1px solid var(--warning)', background: r.status === 'half-day' ? 'var(--warning)' : 'transparent', color: r.status === 'half-day' ? 'white' : 'var(--warning)', borderRadius: 3, cursor: 'pointer' }}>
-                      H
-                    </button>
-                    <button onClick={() => onMarkAttendance(r.employeeId, 'absent')} 
-                      style={{ padding: '2px 6px', fontSize: 10, border: '1px solid var(--danger)', background: r.status === 'absent' ? 'var(--danger)' : 'transparent', color: r.status === 'absent' ? 'white' : 'var(--danger)', borderRadius: 3, cursor: 'pointer' }}>
-                      A
-                    </button>
+          {loading && <tr><td colSpan={showActions && onMarkAttendance ? 10 : 9}><EmptyState icon={<Loader size={28} />} text="Loading…" /></td></tr>}
+          {!loading && rows.map((r, i) => {
+            const isUpdating = updatingStatus[r.employeeId];
+            return (
+              <tr key={r.employeeId + i} style={{ opacity: isUpdating ? 0.6 : 1 }}>
+                <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="emp-avt" style={{ width: 28, height: 28, fontSize: 11 }}>{avt(r.name || '')}</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{r.employeeCode}</div>
                   </div>
+                </div></td>
+                <td><span className="time-tag">{r.checkInTime || '—'}</span></td>
+                <td>
+                  <button onClick={() => showSelfie(r.name, 'In', r.checkInSelfie, r.checkInTime, r.checkInLocation)}
+                    style={{ background: r.checkInSelfie ? '#e8f5ee' : 'var(--surface2)', border: `1px solid ${r.checkInSelfie ? '#b8dcc8' : 'var(--border)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'DM Mono, monospace', fontWeight: 700, color: r.checkInSelfie ? 'var(--success)' : 'var(--ink2)' }}>
+                    <Camera size={11} />{r.checkInSelfie ? 'View' : 'None'}
+                  </button>
+                </td>
+                <td><span className="time-tag">{r.checkOutTime || '—'}</span></td>
+                <td>
+                  {r.checkOutTime
+                    ? <button onClick={() => showSelfie(r.name, 'Out', r.checkOutSelfie, r.checkOutTime, r.checkOutLocation)}
+                        style={{ background: r.checkOutSelfie ? '#e8f5ee' : 'var(--surface2)', border: `1px solid ${r.checkOutSelfie ? '#b8dcc8' : 'var(--border)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'DM Mono, monospace', fontWeight: 700, color: r.checkOutSelfie ? 'var(--success)' : 'var(--ink2)' }}>
+                        <Camera size={11} />{r.checkOutSelfie ? 'View' : 'None'}
+                      </button>
+                    : <span style={{ color: 'var(--border)' }}>—</span>}
+                </td>
+                <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--success)' }}>
+                  {r.hoursWorked || (r.checkInTime && !r.checkOutTime ? 'Working…' : '—')}
+                </td>
+                <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--warning)' }}>{r.isLate ? r.lateBy : '—'}</td>
+                <td>{r.checkInLocation
+                  ? <span className="gps-ok-tag" style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={11} />{r.checkInDistance}m</span>
+                  : <span className="gps-na-tag">—</span>}
+                </td>
+                <td><span className={`badge ${r.status === 'present' ? 'b-in' : r.status === 'half-day' ? 'b-out' : 'b-absent'}`}>{r.status || 'absent'}</span></td>
+                {showActions && onMarkAttendance && (
+                  <td>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button 
+                        onClick={() => handleStatusUpdate(r.employeeId, 'present', r.status)} 
+                        disabled={isUpdating}
+                        style={{ 
+                          padding: '4px 8px', 
+                          fontSize: 10, 
+                          border: '1px solid var(--success)', 
+                          background: r.status === 'present' ? 'var(--success)' : 'transparent', 
+                          color: r.status === 'present' ? 'white' : 'var(--success)', 
+                          borderRadius: 3, 
+                          cursor: isUpdating ? 'not-allowed' : 'pointer',
+                          opacity: isUpdating ? 0.5 : 1,
+                          fontWeight: 600,
+                          minWidth: 24,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Mark as Present"
+                      >
+                        {isUpdating === 'present' ? '⏳' : 'P'}
+                      </button>
+                      <button 
+                        onClick={() => handleStatusUpdate(r.employeeId, 'half-day', r.status)} 
+                        disabled={isUpdating}
+                        style={{ 
+                          padding: '4px 8px', 
+                          fontSize: 10, 
+                          border: '1px solid var(--warning)', 
+                          background: r.status === 'half-day' ? 'var(--warning)' : 'transparent', 
+                          color: r.status === 'half-day' ? 'white' : 'var(--warning)', 
+                          borderRadius: 3, 
+                          cursor: isUpdating ? 'not-allowed' : 'pointer',
+                          opacity: isUpdating ? 0.5 : 1,
+                          fontWeight: 600,
+                          minWidth: 24,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Mark as Half Day"
+                      >
+                        {isUpdating === 'half-day' ? '⏳' : 'H'}
+                      </button>
+                      <button 
+                        onClick={() => handleStatusUpdate(r.employeeId, 'absent', r.status)} 
+                        disabled={isUpdating}
+                        style={{ 
+                          padding: '4px 8px', 
+                          fontSize: 10, 
+                          border: '1px solid var(--danger)', 
+                          background: r.status === 'absent' || !r.status ? 'var(--danger)' : 'transparent', 
+                          color: r.status === 'absent' || !r.status ? 'white' : 'var(--danger)', 
+                          borderRadius: 3, 
+                          cursor: isUpdating ? 'not-allowed' : 'pointer',
+                          opacity: isUpdating ? 0.5 : 1,
+                          fontWeight: 600,
+                          minWidth: 24,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Mark as Absent"
+                      >
+                        {isUpdating === 'absent' ? '⏳' : 'A'}
+                      </button>
+                    </div>
+                  </td>
                 )}
-              </td>
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={10}><EmptyState icon={<Inbox size={28} />} text="No records" /></td></tr>
+            <tr><td colSpan={showActions && onMarkAttendance ? 10 : 9}><EmptyState icon={<Inbox size={28} />} text="No records" /></td></tr>
           )}
         </tbody>
       </table>
@@ -1177,39 +1271,144 @@ function AttTable({ rows, title, loading, onMarkAttendance }) {
   );
 }
 
-function MiniTable({ rows }) {
+function MiniTable({ rows, onMarkAttendance, date, adminId }) {
+  const [updatingStatus, setUpdatingStatus] = useState({});
+
+  const handleStatusUpdate = async (employeeId, newStatus, currentStatus) => {
+    if (currentStatus === newStatus) {
+      toast(`Employee already marked as ${newStatus}`, 2000, 'warning');
+      return;
+    }
+
+    setUpdatingStatus(prev => ({ ...prev, [employeeId]: newStatus }));
+    
+    try {
+      console.log('Updating status:', { employeeId, date, newStatus });
+      await api.post('/attendance/mark', { employeeId, date, status: newStatus });
+      toast(`Marked as ${newStatus}`, 3000, 'success');
+      
+      // Trigger parent component reload if callback provided
+      if (onMarkAttendance) {
+        onMarkAttendance();
+      }
+    } catch (error) {
+      console.error('Status update error:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to update status';
+      toast(errorMsg, 4000, 'error');
+    } finally {
+      setUpdatingStatus(prev => ({ ...prev, [employeeId]: undefined }));
+    }
+  };
+
   const thStyle = { textAlign: 'left', padding: '8px 16px', fontSize: 11, color: 'var(--ink2)', textTransform: 'uppercase', letterSpacing: 0.8, background: 'var(--surface2)', fontWeight: 600 };
+  
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead><tr>
         <th style={thStyle}>Employee</th><th style={thStyle}>In</th><th style={thStyle}>Out</th>
         <th style={thStyle}>Hours</th><th style={thStyle}>Late</th><th style={thStyle}>Status</th>
+        {date && <th style={thStyle}>Actions</th>}
       </tr></thead>
       <tbody>
-        {rows.map((r, i) => (
-          <tr key={r.employeeId + i} style={{ borderBottom: '1px solid rgba(216,208,192,0.4)' }}>
-            <td style={{ padding: '10px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="emp-avt" style={{ width: 26, height: 26, fontSize: 10 }}>{avt(r.name || '')}</div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{r.employeeCode}</div>
+        {rows.map((r, i) => {
+          const isUpdating = updatingStatus[r.employeeId];
+          return (
+            <tr key={r.employeeId + i} style={{ borderBottom: '1px solid rgba(216,208,192,0.4)', opacity: isUpdating ? 0.6 : 1 }}>
+              <td style={{ padding: '10px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="emp-avt" style={{ width: 26, height: 26, fontSize: 10 }}>{avt(r.name || '')}</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{r.employeeCode}</div>
+                  </div>
                 </div>
-              </div>
-            </td>
-            <td style={{ padding: '10px 16px' }}><span className="time-tag">{r.checkInTime || '—'}</span></td>
-            <td style={{ padding: '10px 16px' }}><span className="time-tag">{r.checkOutTime || '—'}</span></td>
-            <td style={{ padding: '10px 16px', fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--success)' }}>
-              {r.hoursWorked || (r.checkInTime && !r.checkOutTime ? 'Working…' : '—')}
-            </td>
-            <td style={{ padding: '10px 16px', fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--warning)' }}>
-              {r.isLate ? r.lateBy : '—'}
-            </td>
-            <td style={{ padding: '10px 16px' }}>
-              <span className={`badge ${r.status === 'present' ? 'b-in' : r.status === 'half-day' ? 'b-out' : 'b-absent'}`}>{r.status || 'absent'}</span>
-            </td>
-          </tr>
-        ))}
+              </td>
+              <td style={{ padding: '10px 16px' }}><span className="time-tag">{r.checkInTime || '—'}</span></td>
+              <td style={{ padding: '10px 16px' }}><span className="time-tag">{r.checkOutTime || '—'}</span></td>
+              <td style={{ padding: '10px 16px', fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--success)' }}>
+                {r.hoursWorked || (r.checkInTime && !r.checkOutTime ? 'Working…' : '—')}
+              </td>
+              <td style={{ padding: '10px 16px', fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--warning)' }}>
+                {r.isLate ? r.lateBy : '—'}
+              </td>
+              <td style={{ padding: '10px 16px' }}>
+                <span className={`badge ${r.status === 'present' ? 'b-in' : r.status === 'half-day' ? 'b-out' : 'b-absent'}`}>{r.status || 'absent'}</span>
+              </td>
+              {date && (
+                <td style={{ padding: '10px 16px' }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button 
+                      onClick={() => handleStatusUpdate(r.employeeId, 'present', r.status)} 
+                      disabled={isUpdating}
+                      style={{ 
+                        padding: '3px 6px', 
+                        fontSize: 9, 
+                        border: '1px solid var(--success)', 
+                        background: r.status === 'present' ? 'var(--success)' : 'transparent', 
+                        color: r.status === 'present' ? 'white' : 'var(--success)', 
+                        borderRadius: 3, 
+                        cursor: isUpdating ? 'not-allowed' : 'pointer',
+                        opacity: isUpdating ? 0.5 : 1,
+                        fontWeight: 600,
+                        minWidth: 20,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Mark as Present"
+                    >
+                      {isUpdating === 'present' ? '⏳' : 'P'}
+                    </button>
+                    <button 
+                      onClick={() => handleStatusUpdate(r.employeeId, 'half-day', r.status)} 
+                      disabled={isUpdating}
+                      style={{ 
+                        padding: '3px 6px', 
+                        fontSize: 9, 
+                        border: '1px solid var(--warning)', 
+                        background: r.status === 'half-day' ? 'var(--warning)' : 'transparent', 
+                        color: r.status === 'half-day' ? 'white' : 'var(--warning)', 
+                        borderRadius: 3, 
+                        cursor: isUpdating ? 'not-allowed' : 'pointer',
+                        opacity: isUpdating ? 0.5 : 1,
+                        fontWeight: 600,
+                        minWidth: 20,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Mark as Half Day"
+                    >
+                      {isUpdating === 'half-day' ? '⏳' : 'H'}
+                    </button>
+                    <button 
+                      onClick={() => handleStatusUpdate(r.employeeId, 'absent', r.status)} 
+                      disabled={isUpdating}
+                      style={{ 
+                        padding: '3px 6px', 
+                        fontSize: 9, 
+                        border: '1px solid var(--danger)', 
+                        background: r.status === 'absent' || !r.status ? 'var(--danger)' : 'transparent', 
+                        color: r.status === 'absent' || !r.status ? 'white' : 'var(--danger)', 
+                        borderRadius: 3, 
+                        cursor: isUpdating ? 'not-allowed' : 'pointer',
+                        opacity: isUpdating ? 0.5 : 1,
+                        fontWeight: 600,
+                        minWidth: 20,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Mark as Absent"
+                    >
+                      {isUpdating === 'absent' ? '⏳' : 'A'}
+                    </button>
+                  </div>
+                </td>
+              )}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
