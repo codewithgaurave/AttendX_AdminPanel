@@ -53,7 +53,7 @@ export default function Dashboard() {
       {/* Top header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', background: 'var(--ink)', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--bg)', letterSpacing: -0.5 }}>
-          Attend<span style={{ color: 'var(--accent)' }}>X</span>
+          Atten<span style={{ color: 'var(--accent)' }}>Zo</span>
         </div>
 
         {/* Desktop nav — all tabs */}

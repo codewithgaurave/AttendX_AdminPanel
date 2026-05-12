@@ -372,7 +372,8 @@ function DateView({ adminId }) {
     try {
       console.log('Marking attendance:', { employeeId, date, status });
       await api.post('/attendance/mark', { employeeId, date, status });
-      toast(`Marked as ${status}`, 3000, 'success');
+      toast(`Successfully marked as ${status}`, 2000, 'success');
+      
       // Reload the report data
       setLoading(true);
       const response = await api.get(`/attendance/report/${adminId}?date=${date}`);
@@ -1147,6 +1148,15 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
     } catch (error) {
       console.error('Status update error:', error);
       toast('Failed to update status', 3000, 'error');
+      
+      // Revert local state on error
+      setLocalRows(prevRows => 
+        prevRows.map(row => 
+          row.employeeId === employeeId 
+            ? { ...row, status: currentStatus }
+            : row
+        )
+      );
     } finally {
       setUpdatingStatus(prev => ({ ...prev, [employeeId]: undefined }));
     }
@@ -1228,7 +1238,10 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
                         {isUpdating === 'present' ? '⏳' : 'P'}
                       </button>
                       <button 
-                        onClick={() => handleStatusUpdate(r.employeeId, 'half-day', r.status)} 
+                        onClick={() => {
+                          console.log('Halfday button clicked for employee:', r.employeeId, 'current status:', r.status);
+                          handleStatusUpdate(r.employeeId, 'half-day', r.status);
+                        }} 
                         disabled={isUpdating}
                         style={{ 
                           padding: '4px 8px', 
@@ -1306,7 +1319,7 @@ function MiniTable({ rows, onMarkAttendance, date, adminId }) {
     try {
       console.log('Updating status:', { employeeId, date, newStatus });
       await api.post('/attendance/mark', { employeeId, date, status: newStatus });
-      toast(`Marked as ${newStatus}`, 3000, 'success');
+      toast(`Successfully marked as ${newStatus}`, 2000, 'success');
       
       // Update local state immediately for better UX
       setLocalRows(prevRows => 
@@ -1325,6 +1338,15 @@ function MiniTable({ rows, onMarkAttendance, date, adminId }) {
       console.error('Status update error:', error);
       const errorMsg = error.response?.data?.message || 'Failed to update status';
       toast(errorMsg, 4000, 'error');
+      
+      // Revert local state on error
+      setLocalRows(prevRows => 
+        prevRows.map(row => 
+          row.employeeId === employeeId 
+            ? { ...row, status: currentStatus }
+            : row
+        )
+      );
     } finally {
       setUpdatingStatus(prev => ({ ...prev, [employeeId]: undefined }));
     }

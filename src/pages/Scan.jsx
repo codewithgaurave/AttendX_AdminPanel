@@ -6,13 +6,16 @@ import api from '../utils/api';
 import { avt, fmtTime } from '../utils/api';
 import { toast } from '../components/Toast';
 
-const STEPS = { camera: 1, gps: 2, pick: 3, setpin: 4, selfie: 5, auto: 2, done: 6, blocked: 2 };
-const LABELS = { camera: 'Scan QR Code', gps: 'Verifying Location', pick: 'Select Your Name', setpin: 'Set Your PIN', selfie: 'Take Selfie', auto: 'Auto Attendance', done: 'Done!', blocked: 'Access Denied' };
+const STEPS = { camera: 1, gps: 2, pick: 3, setpin: 4, pin: 4, selfie: 5, auto: 2, done: 6, blocked: 2 };
+const LABELS = { camera: 'Scan QR Code', gps: 'Verifying Location', pick: 'Select Your Name', setpin: 'Set Your PIN', pin: 'Enter Your PIN', selfie: 'Take Selfie', auto: 'Marking Attendance', done: 'Done!', blocked: 'Access Denied' };
 
 export default function Scan() {
   const nav = useNavigate();
-  const [step, setStep] = useState('camera');
-  const [adminId, setAdminId] = useState(null);
+
+  // Agar adminId localStorage mein hai toh seedha GPS se shuru karo
+  const savedAdminId = localStorage.getItem('attenzo_admin_id');
+  const [step, setStep] = useState(savedAdminId ? 'gps' : 'camera');
+  const [adminId, setAdminId] = useState(savedAdminId || null);
   const [employees, setEmployees] = useState([]);
   const [selEmp, setSelEmp] = useState(null);
   const [geoResult, setGeoResult] = useState(null);
@@ -22,6 +25,7 @@ export default function Scan() {
   const [loading, setLoading] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+  const [enteredPin, setEnteredPin] = useState('');
   const [isFirstTime, setIsFirstTime] = useState(false);
   const [selfieData, setSelfieData] = useState(null);
   const [showSelfieCamera, setShowSelfieCamera] = useState(false);
@@ -49,6 +53,7 @@ export default function Scan() {
           if (data.adminId) { 
             stopCamera(); 
             setAdminId(data.adminId); 
+            localStorage.setItem('attenzo_admin_id', data.adminId);
             localStorage.setItem('current_admin_id', data.adminId);
             setStep('gps'); 
           }
@@ -75,11 +80,8 @@ export default function Scan() {
     if (!geoResult) return;
     if (geoResult.ok) {
       setTimeout(() => {
-        // Always fetch fresh employee data first
-        console.log('Fetching employees for adminId:', adminId);
         api.get(`/attendance/employees/${adminId}`)
           .then(r => { 
-            console.log('Employees fetched successfully:', r.data);
             setEmployees(r.data);
             
             // Check if user has PIN stored locally
@@ -89,34 +91,24 @@ export default function Scan() {
             if (storedPin && storedEmployeeData) {
               try {
                 const storedEmployee = JSON.parse(storedEmployeeData);
-                // Find the employee in fresh data to ensure it still exists
                 const currentEmployee = r.data.find(emp => emp._id === storedEmployee._id);
                 
                 if (currentEmployee) {
-                  console.log('Found existing employee, proceeding with auto attendance:', currentEmployee.name);
                   setSelEmp(currentEmployee);
-                  if (currentEmployee.selfieRequired) {
-                    setStep('selfie');
-                  } else {
-                    setStep('auto');
-                    markSmartAttendance(currentEmployee);
-                  }
+                  // PIN set hai → PIN verify screen dikhao
+                  setStep('pin');
                 } else {
-                  console.log('Stored employee not found in current list, showing employee selection');
-                  // Clear invalid stored data
+                  // Employee ab exist nahi karta, clear karo
                   localStorage.removeItem(`attenzo_pin_${adminId}`);
                   localStorage.removeItem(`attenzo_employee_${adminId}`);
                   setStep('pick');
                 }
-              } catch (error) {
-                console.error('Error parsing stored employee data:', error);
-                // Clear corrupted data
+              } catch {
                 localStorage.removeItem(`attenzo_pin_${adminId}`);
                 localStorage.removeItem(`attenzo_employee_${adminId}`);
                 setStep('pick');
               }
             } else {
-              console.log('No stored PIN/employee found, showing employee selection');
               setStep('pick');
             }
           })
@@ -135,7 +127,6 @@ export default function Scan() {
 
   const markSmartAttendance = async (employee) => {
     if (!employee || !geoResult) return;
-    console.log('Starting markSmartAttendance for:', employee.name);
     setLoading(true);
     try {
       const attendanceData = { 
@@ -144,24 +135,17 @@ export default function Scan() {
         lat: geoResult.lat, 
         long: geoResult.long 
       };
-      
-      if (selfieData) {
-        attendanceData.selfieImage = selfieData;
-      }
-      
-      console.log('Sending attendance data:', attendanceData);
+      if (selfieData) attendanceData.selfieImage = selfieData;
       const { data } = await api.post('/attendance/smart', attendanceData);
-      console.log('Attendance marked successfully:', data);
       setDoneData({ type: data.action === 'punch-in' ? 'in' : 'out', data, emp: employee });
       setStep('done');
     } catch (e) {
-      console.error('Attendance marking failed:', e);
       if (e.response?.status === 403) { 
         setBlockedInfo(e.response.data); 
         setStep('blocked'); 
       } else {
-        toast(e.response?.data?.message || 'Failed to mark attendance. Please try again.');
-        setStep('pick'); // Go back to employee selection
+        toast(e.response?.data?.message || 'Failed to mark attendance. Please try again.', 4000, 'error');
+        setStep('pin');
       }
     } finally { 
       setLoading(false); 
@@ -194,26 +178,26 @@ export default function Scan() {
     }
   };
 
-  // const handlePinEntry = async () => {
-//     if (!pin || pin.length !== 4) {
-//       toast('Enter 4-digit PIN');
-//       return;
-//     }
-//     const storedPin = localStorage.getItem(`attendx_pin_${adminId}`);
-//     const storedEmployee = JSON.parse(localStorage.getItem(`attendx_employee_${adminId}`) || '{}');
-//     
-//     if (pin !== storedPin) {
-//       toast('Incorrect PIN');
-//       setPin('');
-//       return;
-//     }
-//     
-//     setSelEmp(storedEmployee);
-//     markSmartAttendance(storedEmployee);
-//   };
+  const handlePinVerify = () => {
+    const storedPin = localStorage.getItem(`attenzo_pin_${adminId}`);
+    if (enteredPin !== storedPin) {
+      toast('Incorrect PIN. Try again.', 3000, 'error');
+      setEnteredPin('');
+      return;
+    }
+    setEnteredPin('');
+    if (selEmp.selfieRequired) {
+      setStep('selfie');
+    } else {
+      setStep('auto');
+      markSmartAttendance(selEmp);
+    }
+  };
+
+
 
   const goBack = () => {
-    const map = { camera: '/', gps: 'camera', blocked: 'camera', pick: 'gps', setpin: 'pick', auto: 'camera', done: '/' };
+    const map = { camera: '/', gps: 'camera', blocked: 'camera', pick: 'gps', setpin: 'pick', pin: 'gps', auto: 'camera', done: '/' };
     const next = map[step];
     if (next === '/') { nav('/'); }
     else { setStep(next); }
@@ -256,6 +240,7 @@ export default function Scan() {
           {step === 'blocked' && <BlockedStep info={blockedInfo} onRetry={() => { setGeoResult(null); setStep('gps'); }} onHome={() => nav('/')} />}
           {step === 'pick'    && <PickStep employees={filtered} search={search} setSearch={setSearch} geoResult={geoResult} onPick={handleEmployeeSelect} loading={loading} />}
           {step === 'setpin'  && <SetPinStep employee={selEmp} newPin={newPin} setNewPin={setNewPin} confirmPin={confirmPin} setConfirmPin={setConfirmPin} onSetPin={handleSetPin} loading={loading} />}
+          {step === 'pin'     && <PinStep employee={selEmp} pin={enteredPin} setPin={setEnteredPin} onVerify={handlePinVerify} loading={loading} />}
           {step === 'selfie'  && <SelfieStep employee={selEmp} onCapture={() => setShowSelfieCamera(true)} loading={loading} />}
           {step === 'auto'    && <AutoStep employee={selEmp} loading={loading} />}
           {step === 'done'    && <DoneStep doneData={doneData} onHome={() => nav('/')} />}
@@ -436,6 +421,50 @@ function SetPinStep({ employee, newPin, setNewPin, confirmPin, setConfirmPin, on
           style={{ fontSize: 14, fontWeight: 700 }}
         >
           {loading ? 'Setting PIN...' : 'Set PIN & Mark Attendance'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PinStep({ employee, pin, setPin, onVerify, loading }) {
+  if (!employee) return null;
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && pin.length === 4) onVerify();
+  };
+
+  return (
+    <div style={{ textAlign: 'center', padding: '16px 0' }}>
+      <div className="emp-avt" style={{ width: 64, height: 64, fontSize: 20, fontWeight: 800, margin: '0 auto 16px', borderRadius: 8 }}>
+        {avt(employee.name)}
+      </div>
+      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
+        Welcome back, {employee.name}!
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 20 }}>
+        Enter your 4-digit PIN to mark attendance
+      </div>
+      <div style={{ maxWidth: 280, margin: '0 auto' }}>
+        <input
+          className="form-inp"
+          type="password"
+          maxLength="4"
+          value={pin}
+          onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+          onKeyDown={handleKeyDown}
+          placeholder="••••"
+          style={{ textAlign: 'center', fontSize: 24, letterSpacing: 8, marginBottom: 16 }}
+          autoFocus
+          disabled={loading}
+        />
+        <button
+          className="btn btn-primary btn-full"
+          onClick={onVerify}
+          disabled={loading || pin.length !== 4}
+          style={{ fontSize: 14, fontWeight: 700 }}
+        >
+          {loading ? 'Verifying...' : 'Verify & Mark Attendance'}
         </button>
       </div>
     </div>
