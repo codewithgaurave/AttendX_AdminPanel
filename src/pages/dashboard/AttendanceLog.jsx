@@ -1114,6 +1114,12 @@ function showSelfie(name, type, selfie, time, location) {
 
 function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }) {
   const [updatingStatus, setUpdatingStatus] = useState({});
+  const [localRows, setLocalRows] = useState(rows);
+
+  // Update local rows when props change
+  useEffect(() => {
+    setLocalRows(rows);
+  }, [rows]);
 
   const handleStatusUpdate = async (employeeId, newStatus, currentStatus) => {
     if (currentStatus === newStatus) {
@@ -1126,6 +1132,15 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
     try {
       if (onMarkAttendance) {
         await onMarkAttendance(employeeId, newStatus);
+        
+        // Update local state immediately for better UX
+        setLocalRows(prevRows => 
+          prevRows.map(row => 
+            row.employeeId === employeeId 
+              ? { ...row, status: newStatus }
+              : row
+          )
+        );
       } else {
         toast('Status update not available in this view', 3000, 'error');
       }
@@ -1141,7 +1156,7 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
     <div className="tbl-wrap" style={{ overflowX: 'auto' }}>
       <div className="tbl-head-row">
         <div className="tbl-title">{title}</div>
-        <span style={{ fontSize: 11, color: 'var(--ink2)' }}>{rows.length} employees</span>
+        <span style={{ fontSize: 11, color: 'var(--ink2)' }}>{localRows.length} employees</span>
       </div>
       <table>
         <thead><tr>
@@ -1151,7 +1166,7 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
         </tr></thead>
         <tbody>
           {loading && <tr><td colSpan={showActions && onMarkAttendance ? 10 : 9}><EmptyState icon={<Loader size={28} />} text="Loading…" /></td></tr>}
-          {!loading && rows.map((r, i) => {
+          {!loading && localRows.map((r, i) => {
             const isUpdating = updatingStatus[r.employeeId];
             return (
               <tr key={r.employeeId + i} style={{ opacity: isUpdating ? 0.6 : 1 }}>
@@ -1262,7 +1277,7 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
               </tr>
             );
           })}
-          {!loading && rows.length === 0 && (
+          {!loading && localRows.length === 0 && (
             <tr><td colSpan={showActions && onMarkAttendance ? 10 : 9}><EmptyState icon={<Inbox size={28} />} text="No records" /></td></tr>
           )}
         </tbody>
@@ -1273,6 +1288,12 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
 
 function MiniTable({ rows, onMarkAttendance, date, adminId }) {
   const [updatingStatus, setUpdatingStatus] = useState({});
+  const [localRows, setLocalRows] = useState(rows);
+
+  // Update local rows when props change
+  useEffect(() => {
+    setLocalRows(rows);
+  }, [rows]);
 
   const handleStatusUpdate = async (employeeId, newStatus, currentStatus) => {
     if (currentStatus === newStatus) {
@@ -1286,6 +1307,15 @@ function MiniTable({ rows, onMarkAttendance, date, adminId }) {
       console.log('Updating status:', { employeeId, date, newStatus });
       await api.post('/attendance/mark', { employeeId, date, status: newStatus });
       toast(`Marked as ${newStatus}`, 3000, 'success');
+      
+      // Update local state immediately for better UX
+      setLocalRows(prevRows => 
+        prevRows.map(row => 
+          row.employeeId === employeeId 
+            ? { ...row, status: newStatus }
+            : row
+        )
+      );
       
       // Trigger parent component reload if callback provided
       if (onMarkAttendance) {
@@ -1310,7 +1340,7 @@ function MiniTable({ rows, onMarkAttendance, date, adminId }) {
         {date && <th style={thStyle}>Actions</th>}
       </tr></thead>
       <tbody>
-        {rows.map((r, i) => {
+        {localRows.map((r, i) => {
           const isUpdating = updatingStatus[r.employeeId];
           return (
             <tr key={r.employeeId + i} style={{ borderBottom: '1px solid rgba(216,208,192,0.4)', opacity: isUpdating ? 0.6 : 1 }}>
