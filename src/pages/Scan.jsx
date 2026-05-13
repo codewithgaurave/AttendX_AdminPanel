@@ -27,6 +27,10 @@ export default function Scan() {
   const [busy, setBusy] = useState(false);
 
   const scannerRef = useRef(null);
+  const adminIdRef = useRef(adminId); // ref taaki GPS callback mein fresh value mile
+
+  // adminId change hone pe ref sync karo
+  useEffect(() => { adminIdRef.current = adminId; }, [adminId]);
 
   // cleanup camera on unmount
   useEffect(() => () => stopScanner(), []);
@@ -56,6 +60,7 @@ export default function Scan() {
           const data = JSON.parse(text);
           if (!data.adminId) { toast('Invalid QR code'); return; }
           stopScanner();
+          adminIdRef.current = data.adminId;
           setAdminId(data.adminId);
           setStep('gps');
         } catch { toast('Invalid QR code'); }
@@ -83,13 +88,13 @@ export default function Scan() {
 
   const proceedAfterGPS = async (location) => {
     setCoords(location);
-    const storedPin = localStorage.getItem(`pin_${adminId}`);
-    const storedEmpRaw = localStorage.getItem(`emp_${adminId}`);
+    const aid = adminIdRef.current || adminId; // ref se fresh value lo
+    const storedPin = localStorage.getItem(`pin_${aid}`);
+    const storedEmpRaw = localStorage.getItem(`emp_${aid}`);
 
     if (storedPin && storedEmpRaw) {
-      // Returning user — fetch fresh employee list to validate
       try {
-        const { data } = await api.get(`/attendance/employees/${adminId}`);
+        const { data } = await api.get(`/attendance/employees/${aid}`);
         const storedEmp = JSON.parse(storedEmpRaw);
         const freshEmp = data.find(e => e._id === storedEmp._id);
         if (freshEmp) {
@@ -98,23 +103,22 @@ export default function Scan() {
             setStep('selfie');
           } else {
             setStep('marking');
-            markAttendance(freshEmp, location, null);
+            markAttendance(freshEmp, location, null, aid);
           }
         } else {
-          // Employee no longer exists, clear and show pick
-          clearStored();
+          localStorage.removeItem(`pin_${aid}`);
+          localStorage.removeItem(`emp_${aid}`);
           setEmployees(data);
           setStep('pick');
         }
       } catch {
         toast('Could not connect to server. Please retry.');
-        setStep('blocked');
         setBlockedMsg('Server connection failed.');
+        setStep('blocked');
       }
     } else {
-      // First time — fetch employee list
       try {
-        const { data } = await api.get(`/attendance/employees/${adminId}`);
+        const { data } = await api.get(`/attendance/employees/${aid}`);
         setEmployees(data);
         setStep('pick');
       } catch {
@@ -125,17 +129,19 @@ export default function Scan() {
   };
 
   const clearStored = () => {
-    localStorage.removeItem(`pin_${adminId}`);
-    localStorage.removeItem(`emp_${adminId}`);
+    const aid = adminIdRef.current || adminId;
+    localStorage.removeItem(`pin_${aid}`);
+    localStorage.removeItem(`emp_${aid}`);
   };
 
   // ── Mark Attendance ────────────────────────────────────────────────────────
-  const markAttendance = async (employee, location, selfie) => {
+  const markAttendance = async (employee, location, selfie, aid) => {
     setBusy(true);
+    const resolvedAdminId = aid || adminIdRef.current || adminId;
     try {
       const payload = {
         employeeId: employee._id,
-        adminId,
+        adminId: resolvedAdminId,
         lat: location.lat,
         long: location.long,
       };
@@ -149,7 +155,7 @@ export default function Scan() {
         setBlockedMsg(e.response.data?.violation || e.response.data?.message || 'Attendance blocked.');
         setStep('blocked');
       } else {
-        toast(e.response?.data?.message || 'Failed to mark attendance. Try again.');
+        toast(e.response?.data?.message || 'Failed to mark attendance. Try again.', 4000, 'error');
         setStep('scan');
       }
     } finally {
@@ -166,20 +172,21 @@ export default function Scan() {
   const handleSetPin = () => {
     if (pin.length !== 4) { toast('Enter 4-digit PIN'); return; }
     if (pin !== confirmPin) { toast('PINs do not match'); return; }
-    localStorage.setItem(`pin_${adminId}`, pin);
-    localStorage.setItem(`emp_${adminId}`, JSON.stringify(selEmp));
+    const aid = adminIdRef.current || adminId;
+    localStorage.setItem(`pin_${aid}`, pin);
+    localStorage.setItem(`emp_${aid}`, JSON.stringify(selEmp));
     if (selEmp.selfieRequired) {
       setStep('selfie');
     } else {
       setStep('marking');
-      markAttendance(selEmp, coords, null);
+      markAttendance(selEmp, coords, null, aid);
     }
   };
 
   const handleSelfie = (imgData) => {
     setSelfieImg(imgData);
     setStep('marking');
-    markAttendance(selEmp, coords, imgData);
+    markAttendance(selEmp, coords, imgData, adminIdRef.current || adminId);
   };
 
   const retry = () => { setStep('scan'); setAdminId(null); setCoords(null); setSelEmp(null); setPin(''); setConfirmPin(''); setSelfieImg(null); setSearch(''); };
