@@ -62,79 +62,31 @@ export default function Employees() {
       else await api.post('/admin/employees', form);
       toast(editId ? 'Employee updated ✓' : 'Employee added ✓', 3000, 'success');
       setShowModal(false); setForm(emptyForm); setEditId(null); load();
-    } catch (e) { 
-      console.error('Employee save error:', e);
-      let errorMsg = 'Error saving employee';
-      
-      if (e.code === 'ERR_NETWORK') {
-        errorMsg = 'Network error. Please check if server is running.';
-      } else if (e.response?.status === 400) {
-        // Handle validation errors
-        if (e.response.data?.message?.includes('validation failed')) {
-          if (e.response.data.message.includes('gender')) {
-            errorMsg = 'Please select a valid gender or leave it empty';
-          } else if (e.response.data.message.includes('employeeCode')) {
-            errorMsg = 'Employee code already exists. Please use a different code.';
-          } else {
-            errorMsg = 'Validation error: ' + (e.response.data.message || 'Invalid data');
-          }
-        } else if (e.response.data?.message?.includes('already exists')) {
-          errorMsg = e.response.data.message;
-        } else if (e.response.data?.message?.includes('Maximum')) {
-          errorMsg = e.response.data.message;
-        } else {
-          errorMsg = e.response.data?.message || 'Invalid data provided';
-        }
-      } else if (e.response?.status === 403) {
-        if (e.response.data?.expired) {
-          errorMsg = 'Your account has expired. Please renew your subscription.';
-        } else {
-          errorMsg = e.response.data?.message || 'Access denied';
-        }
-      } else if (e.response?.status === 500) {
-        errorMsg = 'Server error. Please try again or contact support.';
-      } else if (e.response?.data?.message) {
-        errorMsg = e.response.data.message;
-      }
-      
-      toast(errorMsg, 4000, 'error');
+    } catch (e) {
+      toast(e.response?.data?.message || 'Error saving employee', 4000, 'error');
     }
   };
 
-  const deactivate = async (id, name) => {
+  const deleteEmployee = async (id, name) => {
     const result = await Swal.fire({
-      title: `Deactivate ${name}?`,
-      text: 'This employee will be deactivated and cannot mark attendance.',
+      title: `Delete ${name}?`,
+      text: 'This will permanently delete the employee.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#c84b2f',
       cancelButtonColor: '#5a5248',
-      confirmButtonText: 'Yes, deactivate',
+      confirmButtonText: 'Yes, delete',
       cancelButtonText: 'Cancel',
       background: '#faf7f2',
       color: '#1a1612',
     });
     if (!result.isConfirmed) return;
     try {
-      await api.patch(`/admin/employees/${id}/deactivate`);
-      toast(`${name} deactivated`, 3000, 'success');
+      await api.delete(`/admin/employees/${id}`);
+      toast(`${name} deleted`, 3000, 'success');
       load();
     } catch (e) {
-      console.error('Deactivate error:', e);
-      const errorMsg = e.response?.data?.message || 'Failed to deactivate employee';
-      toast(errorMsg, 4000, 'error');
-    }
-  };
-
-  const activate = async (id, name) => {
-    try {
-      await api.patch(`/admin/employees/${id}/activate`);
-      toast(`${name} activated`, 3000, 'success');
-      load();
-    } catch (e) {
-      console.error('Activate error:', e);
-      const errorMsg = e.response?.data?.message || 'Failed to activate employee';
-      toast(errorMsg, 4000, 'error');
+      toast(e.response?.data?.message || 'Failed to delete employee', 4000, 'error');
     }
   };
 
@@ -276,7 +228,7 @@ export default function Employees() {
                   <button className="btn btn-sm" onClick={() => openEdit(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Pencil size={12} />Edit</button>
                   <button className="btn btn-sm" onClick={() => setWhModal({ ...e, workingHours: { ...e.workingHours } })} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} />Hours</button>
                   {e.monthlySalary > 0 && <button className="btn btn-sm" onClick={() => downloadSlip(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }} title="Download Salary Slip">💰 Slip</button>}
-                  <button className="btn btn-warning btn-sm" onClick={() => deactivate(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>⏸️ Deactivate</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => deleteEmployee(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Trash2 size={12} />Delete</button>
                 </>
               ) : (
                 <>

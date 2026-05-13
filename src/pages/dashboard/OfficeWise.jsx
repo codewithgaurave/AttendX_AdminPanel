@@ -12,14 +12,17 @@ export default function OfficeWise() {
   const [attReport, setAttReport] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { api.get('/admin/offices').then(r => setOffices(r.data)); }, []);
+  useEffect(() => { api.get('/admin/offices').then(r => setOffices(r.data.offices || r.data || [])); }, []);
 
   useEffect(() => {
     if (!selOffice) return;
     setLoading(true);
     if (tab === 'employees') {
       api.get('/admin/employees')
-        .then(r => setEmployees(r.data.filter(e => (e.officeId?._id || e.officeId) === selOffice._id)))
+        .then(r => {
+          const list = r.data.employees || r.data || [];
+          setEmployees(list.filter(e => (e.officeId?._id || e.officeId) === selOffice._id));
+        })
         .finally(() => setLoading(false));
     } else {
       api.get(`/attendance/office/${selOffice._id}?date=${date}`)

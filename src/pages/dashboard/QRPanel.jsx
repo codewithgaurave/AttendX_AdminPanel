@@ -9,7 +9,12 @@ export default function QRPanel() {
   const [admin, setAdmin] = useState(null);
 
   useEffect(() => {
-    api.get(`/superadmin/admins/${auth.user.id}/qr`).then(r => setAdmin(r.data)).catch(() => {});
+    api.get('/admin/me').then(r => {
+      setAdmin(r.data);
+    }).catch(() => {
+      // fallback: try superadmin route
+      api.get(`/superadmin/admins/${auth.user.id}/qr`).then(r => setAdmin(r.data)).catch(() => {});
+    });
   }, []);
 
   const qrValue = JSON.stringify({ adminId: auth.user.id, companyName: admin?.companyName || '' });
@@ -19,6 +24,7 @@ export default function QRPanel() {
     { icon: <MapPin size={14} />,      text: <><strong>GPS check</strong> — must be within office radius</> },
     { icon: <User size={14} />,        text: <>First time: <strong>Select name & set PIN</strong></> },
     { icon: <CheckSquare size={14} />, text: <>Next times: <strong>Auto attendance</strong> after QR scan</> },
+    { icon: <Camera size={14} />,      text: <><strong>Selfie</strong> — optional, depends on admin setting</> },
   ];
 
   return (
@@ -54,14 +60,11 @@ export default function QRPanel() {
         <div className="qr-print-container">
           {/* Header */}
           <div style={{ marginBottom: 60 }}>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 72, fontWeight: 800, color: '#1a1612', letterSpacing: -2, marginBottom: 8 }}>
-              Attend<span style={{ color: '#c84b2f' }}>X</span>
-            </div>
-            <div style={{ fontSize: 24, color: '#666', textTransform: 'uppercase', letterSpacing: 6, fontFamily: 'monospace', marginBottom: 12 }}>
-              QR Attendance System
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 56, fontWeight: 800, color: '#1a1612', letterSpacing: -2, marginBottom: 8 }}>
+              {admin?.companyName || 'COMPANY NAME'}
             </div>
             <div style={{ fontSize: 18, color: '#888', fontFamily: 'DM Sans, sans-serif' }}>
-              {admin?.companyName || 'COMPANY NAME'}
+              QR Attendance System
             </div>
           </div>
 
@@ -73,6 +76,9 @@ export default function QRPanel() {
           {/* Footer */}
           <div style={{ marginTop: 60, fontSize: 14, color: '#888', fontFamily: 'monospace' }}>
             📍 GPS Required | 🔒 Secure Attendance
+          </div>
+          <div style={{ marginTop: 16, fontSize: 12, color: '#bbb', fontFamily: 'monospace', letterSpacing: 1 }}>
+            Powered by <strong style={{ color: '#c84b2f' }}>AttenZo</strong>
           </div>
         </div>
       </div>
@@ -86,8 +92,8 @@ export default function QRPanel() {
         {/* QR preview on screen */}
         <div>
           <div style={{ background: '#1a1612', borderRadius: 6, padding: '20px 24px', textAlign: 'center', boxShadow: '4px 4px 0 rgba(0,0,0,0.2)' }}>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 20, fontWeight: 800, color: '#f5f0e8', letterSpacing: -0.5, marginBottom: 2 }}>
-              Attend<span style={{ color: '#c84b2f' }}>X</span>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800, color: '#f5f0e8', letterSpacing: -0.5, marginBottom: 2 }}>
+              {admin?.companyName || 'COMPANY NAME'}
             </div>
             <div style={{ fontSize: 9, color: '#666', textTransform: 'uppercase', letterSpacing: 2, fontFamily: 'monospace', marginBottom: 16 }}>
               QR Attendance System
@@ -120,7 +126,7 @@ export default function QRPanel() {
             {steps.map((s, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--ink2)' }}>
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--ink)', color: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, fontWeight: 700 }}>{i + 1}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{s.icon}{s.text}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>{s.icon}{s.text}</div>
               </div>
             ))}
           </div>
