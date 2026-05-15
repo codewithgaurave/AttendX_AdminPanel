@@ -4,7 +4,7 @@ import { avt } from '../../utils/api';
 import { toast } from '../../components/Toast';
 import { exportEmployees } from '../../utils/exportExcel';
 import Swal from 'sweetalert2';
-import { UserPlus, Pencil, Clock, Trash2, Users, Download } from 'lucide-react';
+import { UserPlus, Pencil, Clock, Trash2, Users, Download, Archive, RotateCcw } from 'lucide-react';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const emptyForm = { name: '', email: '', phone: '', employeeCode: '', designation: '', joiningDate: '', officeId: '', department: '', address: '', emergencyContact: '', bloodGroup: '', gender: '', dob: '', monthlySalary: '', weeklyOff: [0], workingHours: { startTime: '09:00', endTime: '18:00' }, selfieRequired: false };
@@ -17,13 +17,15 @@ export default function Employees() {
   const [showModal, setShowModal] = useState(false);
   const [whModal, setWhModal] = useState(null);
   const [filterOffice, setFilterOffice] = useState('all');
+  const [showBin, setShowBin] = useState(false);
+  const [deletedEmployees, setDeletedEmployees] = useState([]);
 
   const load = () => {
     api.get('/admin/employees').then(r => {
-      const employees = r.data.employees || r.data || [];
-      const validEmployees = Array.isArray(employees) ? employees : [];
-      // Sort: active employees first, then inactive at bottom
-      const sortedEmployees = validEmployees.sort((a, b) => {
+      console.log('Employees API response:', r.data);
+      const employees = Array.isArray(r.data) ? r.data : (r.data.employees || []);
+      console.log('Extracted employees:', employees);
+      const sortedEmployees = employees.sort((a, b) => {
         if (a.isActive === b.isActive) return 0;
         return a.isActive ? -1 : 1;
       });
@@ -45,12 +47,20 @@ export default function Employees() {
     }).catch((e) => {
       console.error('Load offices error:', e);
       setOffices([]);
-      if (e.code !== 'ERR_NETWORK') { // Don't show office error if network is already down
+      if (e.code !== 'ERR_NETWORK') {
         toast('Failed to load offices');
       }
     });
   };
+
+  const loadDeleted = () => {
+    api.get('/admin/employees/deleted').then(r => {
+      setDeletedEmployees(r.data || []);
+    }).catch(() => {});
+  };
+
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (showBin) loadDeleted(); }, [showBin]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -69,13 +79,13 @@ export default function Employees() {
 
   const deleteEmployee = async (id, name) => {
     const result = await Swal.fire({
-      title: `Delete ${name}?`,
-      text: 'This will permanently delete the employee.',
+      title: `Move to Bin?`,
+      text: `${name} will be moved to bin. You can restore later if needed.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#c84b2f',
       cancelButtonColor: '#5a5248',
-      confirmButtonText: 'Yes, delete',
+      confirmButtonText: 'Move to Bin',
       cancelButtonText: 'Cancel',
       background: '#faf7f2',
       color: '#1a1612',
@@ -83,10 +93,22 @@ export default function Employees() {
     if (!result.isConfirmed) return;
     try {
       await api.delete(`/admin/employees/${id}`);
-      toast(`${name} deleted`, 3000, 'success');
+      toast(`${name} moved to bin`, 3000, 'success');
       load();
+      if (showBin) loadDeleted();
     } catch (e) {
-      toast(e.response?.data?.message || 'Failed to delete employee', 4000, 'error');
+      toast(e.response?.data?.message || 'Failed to move to bin', 4000, 'error');
+    }
+  };
+
+  const restoreEmployee = async (id, name) => {
+    try {
+      await api.patch(`/admin/employees/${id}/restore`);
+      toast(`${name} restored`, 3000, 'success');
+      load();
+      if (showBin) loadDeleted();
+    } catch (e) {
+      toast(e.response?.data?.message || 'Failed to restore', 4000, 'error');
     }
   };
 
@@ -111,10 +133,7 @@ export default function Employees() {
 
   const downloadSlip = async (emp) => {
     console.log('Download slip clicked for employee:', emp.name);
-    
     const month = new Date().toISOString().slice(0, 7);
-    console.log('Default month:', month);
-    
     const result = await Swal.fire({
       title: 'Select Month',
       input: 'month',
@@ -124,29 +143,13 @@ export default function Employees() {
       background: '#faf7f2',
       color: '#1a1612',
     });
-    
-    console.log('Swal result:', result);
-    
-    if (result.isDismissed || !result.value) {
-      console.log('Month selection cancelled or no value');
-      return;
-    }
-    
+    if (result.isDismissed || !result.value) return;
     const selectedMonth = result.value;
-    console.log('Selected month:', selectedMonth);
-    
     try {
       const token = localStorage.getItem('token');
-      console.log('Token exists:', !!token);
-      
       const base = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
       const url = `${base.replace('/api', '')}/api/salary-slip/${emp._id}?month=${selectedMonth}&token=${token}`;
-      
-      console.log('Opening URL:', url);
-      
-      // Simple window.open test
       const newWindow = window.open(url, '_blank');
-      
       if (!newWindow) {
         console.error('Popup blocked');
         toast('Please allow popups for this site');
@@ -154,7 +157,6 @@ export default function Employees() {
         console.log('Window opened successfully');
         toast('Salary slip opened in new tab');
       }
-      
     } catch (error) {
       console.error('Download error:', error);
       toast('Failed to open salary slip');
@@ -183,6 +185,9 @@ export default function Employees() {
           <button className="btn btn-primary btn-sm" onClick={() => { setForm(emptyForm); setEditId(null); setShowModal(true); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             <UserPlus size={14} />Add Employee
           </button>
+          <button className={`btn btn-sm ${showBin ? 'btn-primary' : ''}`} onClick={() => setShowBin(!showBin)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Archive size={14} />{showBin ? 'Active' : 'Bin'} ({deletedEmployees.length})
+          </button>
           {filterOffice !== 'all' && <button className="btn btn-sm" onClick={() => exportEmployees(Array.isArray(employees) ? employees.filter(e => (e.officeId?._id || e.officeId) === filterOffice) : [], offices.find(o => o._id === filterOffice)?.name || 'Employees')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Download size={14} />Export
           </button>}
@@ -192,55 +197,72 @@ export default function Employees() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 14 }}>
-        {Array.isArray(employees) ? employees.filter(e => filterOffice === 'all' || (e.officeId?._id || e.officeId) === filterOffice).map(e => (
-          <div key={e._id} style={{ 
-            background: 'var(--surface)', 
-            border: '1.5px solid var(--border)', 
-            borderRadius: 4, 
-            padding: 18, 
-            transition: 'all 0.15s',
-            opacity: e.isActive ? 1 : 0.6,
-            filter: e.isActive ? 'none' : 'grayscale(50%)'
-          }}
-            onMouseEnter={ev => { if (e.isActive) { ev.currentTarget.style.borderColor = 'var(--ink)'; ev.currentTarget.style.boxShadow = '3px 3px 0 var(--ink)'; ev.currentTarget.style.transform = 'translate(-1px,-1px)'; } }}
-            onMouseLeave={ev => { if (e.isActive) { ev.currentTarget.style.borderColor = 'var(--border)'; ev.currentTarget.style.boxShadow = 'none'; ev.currentTarget.style.transform = 'none'; } }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <div className="emp-avt" style={{ width: 44, height: 44, fontSize: 15, fontWeight: 800 }}>{avt(e.name)}</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{e.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 2 }}>{e.employeeCode} · {e.designation}</div>
-                <div style={{ marginTop: 5 }}>
-                  <span className={`badge ${e.isActive ? 'b-in' : 'b-out'}`}>
-                    {e.isActive ? e.officeId?.name || 'Office' : 'Deactivated'}
-                  </span>
+      {showBin ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 14 }}>
+          {deletedEmployees.map(e => (
+            <div key={e._id} style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 4, padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <div className="emp-avt" style={{ width: 44, height: 44, fontSize: 15, fontWeight: 800 }}>{avt(e.name)}</div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{e.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 2 }}>{e.employeeCode} · {e.designation}</div>
                 </div>
               </div>
+              <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Clock size={11} />{e.workingHours?.startTime} – {e.workingHours?.endTime}
+              </div>
+              {e.monthlySalary > 0 && <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 6 }}>💰 ₹{e.monthlySalary?.toLocaleString('en-IN')}/mo</div>}
+              <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 12 }}>{e.email}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn btn-success btn-sm" onClick={() => restoreEmployee(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <RotateCcw size={12} />Restore
+                </button>
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Clock size={11} />{e.workingHours?.startTime} – {e.workingHours?.endTime}
+          ))}
+          {deletedEmployees.length === 0 && <div className="empty-state"><Archive size={36} style={{ margin: '0 auto 10px', display: 'block', color: 'var(--ink2)' }} /><div>Bin is empty</div></div>}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 14 }}>
+          {Array.isArray(employees) ? employees.filter(e => filterOffice === 'all' || (e.officeId?._id || e.officeId) === filterOffice).map(e => (
+            <div key={e._id} style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 4, padding: 18, transition: 'all 0.15s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <div className="emp-avt" style={{ width: 44, height: 44, fontSize: 15, fontWeight: 800 }}>{avt(e.name)}</div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{e.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 2 }}>{e.employeeCode} · {e.designation}</div>
+                  <div style={{ marginTop: 5 }}>
+                    <span className={`badge ${e.isActive ? 'b-in' : 'b-out'}`}>
+                      {e.isActive ? e.officeId?.name || 'Office' : 'Deactivated'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Clock size={11} />{e.workingHours?.startTime} – {e.workingHours?.endTime}
+              </div>
+              {e.monthlySalary > 0 && <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 6 }}>💰 ₹{e.monthlySalary?.toLocaleString('en-IN')}/mo</div>}
+              <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 12 }}>{e.email}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {e.isActive ? (
+                  <>
+                    <button className="btn btn-sm" onClick={() => openEdit(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Pencil size={12} />Edit</button>
+                    <button className="btn btn-sm" onClick={() => setWhModal({ ...e, workingHours: { ...e.workingHours } })} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} />Hours</button>
+                    {e.monthlySalary > 0 && <button className="btn btn-sm" onClick={() => downloadSlip(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }} title="Download Salary Slip">💰 Slip</button>}
+                    <button className="btn btn-danger btn-sm" onClick={() => deleteEmployee(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Trash2 size={12} />Delete</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn btn-success btn-sm" onClick={() => restoreEmployee(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><RotateCcw size={12} />Restore</button>
+                    <span style={{ fontSize: 11, color: 'var(--ink2)', fontStyle: 'italic' }}>Moved to bin</span>
+                  </>
+                )}
+              </div>
             </div>
-            {e.monthlySalary > 0 && <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 6 }}>💰 ₹{e.monthlySalary?.toLocaleString('en-IN')}/mo</div>}
-            <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 12 }}>{e.email}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {e.isActive ? (
-                <>
-                  <button className="btn btn-sm" onClick={() => openEdit(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Pencil size={12} />Edit</button>
-                  <button className="btn btn-sm" onClick={() => setWhModal({ ...e, workingHours: { ...e.workingHours } })} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} />Hours</button>
-                  {e.monthlySalary > 0 && <button className="btn btn-sm" onClick={() => downloadSlip(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }} title="Download Salary Slip">💰 Slip</button>}
-                  <button className="btn btn-danger btn-sm" onClick={() => deleteEmployee(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Trash2 size={12} />Delete</button>
-                </>
-              ) : (
-                <>
-                  <button className="btn btn-success btn-sm" onClick={() => activate(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>▶️ Activate</button>
-                  <span style={{ fontSize: 11, color: 'var(--ink2)', fontStyle: 'italic' }}>Cannot mark attendance</span>
-                </>
-              )}
-            </div>
-          </div>
-        )) : null}
-        {Array.isArray(employees) && employees.filter(e => filterOffice === 'all' || (e.officeId?._id || e.officeId) === filterOffice).length === 0 && <div className="empty-state"><Users size={36} style={{ margin: '0 auto 10px', display: 'block', color: 'var(--ink2)' }} /><div>No employees yet</div></div>}
-      </div>
+          )) : null}
+          {Array.isArray(employees) && employees.filter(e => filterOffice === 'all' || (e.officeId?._id || e.officeId) === filterOffice).length === 0 && <div className="empty-state"><Users size={36} style={{ margin: '0 auto 10px', display: 'block', color: 'var(--ink2)' }} /><div>No employees yet</div></div>}
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay active" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
