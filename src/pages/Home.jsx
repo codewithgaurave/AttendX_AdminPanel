@@ -1,85 +1,349 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, MapPin } from 'lucide-react';
+import {
+  LogIn,
+  QrCode,
+  ArrowRight,
+  Shield,
+  Zap,
+  BarChart3,
+  User,
+  CalendarDays
+} from 'lucide-react';
 import PWAInstallButton from '../components/PWAInstallButton';
 
-const getClockStr = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-const getDateStr  = () => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const getClockStr = () =>
+  new Date().toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+
+const getDateStr = () =>
+  new Date().toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
 
 export default function Home() {
   const nav = useNavigate();
   const [clock, setClock] = useState(getClockStr());
 
   useEffect(() => {
-    const t = setInterval(() => setClock(getClockStr()), 1000);
+    const t = setInterval(() => {
+      setClock(getClockStr());
+    }, 1000);
+
     return () => clearInterval(t);
   }, []);
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: 16 }}>
-        <div style={{ background: 'var(--surface)', border: '2px solid var(--ink)', borderRadius: 4, width: '100%', maxWidth: 420, overflow: 'hidden', boxShadow: '6px 6px 0 var(--ink)' }}>
+      <div style={styles.page}>
+        <div style={styles.container}>
 
           {/* Header */}
-          <div style={{ background: 'var(--ink)', padding: '28px 32px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 32, fontWeight: 800, color: 'var(--bg)', letterSpacing: -1 }}>
-              Atten<span style={{ color: 'var(--accent)' }}>Zo</span>
+          <div style={styles.header}>
+            <h1 style={styles.logo}>
+              Atten<span style={{ color: '#ff6b35' }}>Zo</span>
+            </h1>
+
+            <div style={styles.portal}>
+              ADMIN PORTAL
             </div>
-            <div style={{ fontSize: 12, color: '#888', marginTop: 4, textTransform: 'uppercase', letterSpacing: 2, fontFamily: 'DM Mono, monospace' }}>
-              Admin Portal
-            </div>
+
+            <div style={styles.line}></div>
           </div>
 
           {/* Body */}
-            <div style={{ padding: 28 }}>
-                {/* Clock */}
-                <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 38, fontWeight: 500, color: 'var(--ink)', lineHeight: 1, letterSpacing: -1 }}>
-                        {clock}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
-                        {getDateStr()}
-                    </div>
-                </div>
+          <div style={styles.body}>
 
-                <div style={{ height: 1, background: 'var(--border)', marginBottom: 24 }} />
-
-                <HomeBtn primary icon={<LogIn size={18} />} onClick={() => nav('/login')}>
-                    Admin Login
-                </HomeBtn>
-                
-                <HomeBtn primary icon={<MapPin size={18} />} onClick={() => nav('/scan')}>
-                    Scan QR & Mark Attendance
-                </HomeBtn>
+            <div style={styles.avatar}>
+              <User size={30} color="#ff6b35"/>
             </div>
+
+            <h2 style={styles.welcome}>
+              Welcome Back! 👋
+            </h2>
+
+            <p style={styles.subtitle}>
+              Manage your attendance with ease.
+            </p>
+
+            {/* Clock Card */}
+            <div style={styles.clockCard}>
+              <div style={styles.clock}>
+                {clock}
+              </div>
+
+              <div style={styles.date}>
+                <CalendarDays size={18}/>
+                {getDateStr()}
+              </div>
+            </div>
+
+            {/* QR Card */}
+            <ActionCard
+              icon={<QrCode size={34}/>}
+              title="Scan QR & Mark Attendance"
+              desc="Quickly scan and mark attendance"
+              gradient="linear-gradient(90deg,#b146ff,#4a3cff)"
+              onClick={() => nav('/scan')}
+            />
+
+            {/* Login Card */}
+            <ActionCard
+              icon={<LogIn size={34}/>}
+              title="Admin Login"
+              desc="Secure access to your dashboard"
+              gradient="linear-gradient(90deg,#ff7b00,#ff3f72)"
+              onClick={() => nav('/login')}
+            />
+
+            {/* Bottom */}
+            <div style={styles.bottom}>
+
+              <Feature
+                icon={<Shield/>}
+                title="Secure"
+                text="Your data is always safe"
+              />
+
+              <Feature
+                icon={<Zap/>}
+                title="Fast"
+                text="Quick attendance in seconds"
+              />
+
+              <Feature
+                icon={<BarChart3/>}
+                title="Smart"
+                text="Insights at your fingertips"
+              />
+
+            </div>
+
+          </div>
         </div>
       </div>
-      
-      <PWAInstallButton />
+
+      <PWAInstallButton/>
     </>
   );
 }
 
-function HomeBtn({ children, primary, icon, onClick }) {
-  const [hov, setHov] = useState(false);
+
+function ActionCard({
+  icon,
+  title,
+  desc,
+  gradient,
+  onClick
+}) {
+
   return (
-    <button
-      style={{
-        width: '100%', padding: '14px 16px', border: '2px solid',
-        borderColor: primary ? 'var(--accent)' : 'var(--ink)',
-        borderRadius: 4, cursor: 'pointer',
-        fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 700,
-        transition: 'all 0.15s', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', gap: 10, marginBottom: 12,
-        background: primary ? (hov ? '#a83420' : 'var(--accent)') : (hov ? 'var(--ink)' : 'transparent'),
-        color: primary ? '#fff' : (hov ? 'var(--bg)' : 'var(--ink2)'),
-        boxShadow: primary ? '4px 4px 0 rgba(200,75,47,0.25)' : 'none',
-      }}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+    <div
       onClick={onClick}
+      style={{
+        background:gradient,
+        borderRadius:25,
+        padding:"20px",
+        marginBottom:20,
+        cursor:"pointer",
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"space-between",
+        color:"#fff",
+        boxShadow:"0 10px 30px rgba(0,0,0,.2)"
+      }}
     >
-      {icon}{children}
-    </button>
+      <div
+        style={{
+          background:"#fff",
+          width:70,
+          height:70,
+          borderRadius:20,
+          display:"flex",
+          justifyContent:"center",
+          alignItems:"center",
+          color:"#6a3eff"
+        }}
+      >
+        {icon}
+      </div>
+
+      <div style={{flex:1,paddingLeft:20}}>
+        <div
+          style={{
+            fontWeight:700,
+            fontSize:26
+          }}
+        >
+          {title}
+        </div>
+
+        <div
+          style={{
+            opacity:.9,
+            marginTop:6
+          }}
+        >
+          {desc}
+        </div>
+      </div>
+
+      <ArrowRight/>
+    </div>
   );
 }
+
+
+function Feature({
+  icon,
+  title,
+  text
+}) {
+
+  return (
+    <div
+      style={{
+        flex:1,
+        textAlign:"center"
+      }}
+    >
+      <div>{icon}</div>
+
+      <b>{title}</b>
+
+      <div
+        style={{
+          fontSize:12,
+          color:"#666"
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
+
+
+const styles={
+
+page:{
+background:
+"linear-gradient(135deg,#ff8a5c,#d33eff,#2196f3)",
+height:"100vh",
+display:"flex",
+justifyContent:"center",
+alignItems:"center",
+padding:15,
+overflow:"hidden"
+},
+
+container:{
+width:"100%",
+maxWidth:550,
+height:"100%",
+display:"flex",
+flexDirection:"column"
+},
+
+header:{
+background:"#051860",
+padding:"35px",
+borderRadius:"35px 35px 0 0",
+textAlign:"center",
+color:"#fff"
+},
+
+logo:{
+fontSize:55,
+margin:0,
+fontWeight:"800"
+},
+
+portal:{
+letterSpacing:5,
+marginTop:8,
+opacity:.8
+},
+
+line:{
+width:100,
+height:5,
+margin:"20px auto 0",
+borderRadius:10,
+background:
+"linear-gradient(90deg,#ff9a00,#ff3eff)"
+},
+
+body:{
+background:"#fff",
+padding:"20px 25px",
+borderRadius:"0 0 35px 35px",
+flex:1,
+overflow:"hidden",
+display:"flex",
+flexDirection:"column"
+},
+
+avatar:{
+width:70,
+height:70,
+background:"#fff5f1",
+borderRadius:"50%",
+display:"flex",
+justifyContent:"center",
+alignItems:"center",
+margin:"auto",
+boxShadow:"0 5px 20px rgba(0,0,0,.1)"
+},
+
+welcome:{
+textAlign:"center",
+marginTop:20,
+marginBottom:5
+},
+
+subtitle:{
+textAlign:"center",
+color:"#666"
+},
+
+clockCard:{
+background:"#fff",
+padding:"20px 25px",
+borderRadius:25,
+boxShadow:"0 5px 20px rgba(0,0,0,.08)",
+marginBottom:15
+},
+
+clock:{
+fontSize:55,
+fontWeight:"bold",
+textAlign:"center",
+color:"#071952"
+},
+
+date:{
+display:"flex",
+justifyContent:"center",
+alignItems:"center",
+gap:10,
+marginTop:10,
+color:"#666"
+},
+
+bottom:{
+display:"flex",
+paddingTop:15,
+gap:12,
+marginTop:"auto"
+}
+
+};
