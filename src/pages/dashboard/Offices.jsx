@@ -108,7 +108,27 @@ export default function Offices() {
         });
       }
       toast('✓ Location detected — adjust pin if needed');
-    }, () => toast('Could not get location — please allow access'));
+    }, err => {
+      let msg = '';
+      let showInstructions = false;
+      
+      if (err.code === err.PERMISSION_DENIED) {
+        msg = 'Location access denied';
+        showInstructions = true;
+      } else if (err.code === err.POSITION_UNAVAILABLE) {
+        msg = 'Location unavailable';
+      } else if (err.code === err.TIMEOUT) {
+        msg = 'Location request timed out';
+      } else {
+        msg = 'Could not get location';
+      }
+      
+      if (showInstructions) {
+        toast(`${msg}.\n\n📱 iOS Instructions:\n1. Settings → Safari → Location\n2. Select "Allow"\n3. Refresh page`);
+      } else {
+        toast(msg);
+      }
+    });
   };
 
   const openModal = (office = null) => {

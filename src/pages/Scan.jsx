@@ -81,7 +81,28 @@ export default function Scan() {
     if (!navigator.geolocation) { proceedAfterGPS({ lat: 0, long: 0 }); return; }
     navigator.geolocation.getCurrentPosition(
       pos => proceedAfterGPS({ lat: pos.coords.latitude, long: pos.coords.longitude }),
-      () => { setBlockedMsg('Location access denied. Please allow location and retry.'); setStep('blocked'); },
+      err => {
+        let msg = '';
+        let showInstructions = false;
+        
+        if (err.code === err.PERMISSION_DENIED) {
+          msg = 'Location access denied';
+          showInstructions = true;
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          msg = 'Location unavailable';
+        } else if (err.code === err.TIMEOUT) {
+          msg = 'Location request timed out';
+        } else {
+          msg = 'Could not get location';
+        }
+        
+        if (showInstructions) {
+          setBlockedMsg(`${msg}.\n\n📱 iOS Instructions:\n1. Go to Settings → Safari → Location\n2. Select "Allow"\n3. Refresh this page`);
+        } else {
+          setBlockedMsg(msg);
+        }
+        setStep('blocked');
+      },
       { timeout: 12000, maximumAge: 0, enableHighAccuracy: true }
     );
   };
@@ -357,7 +378,31 @@ function SelfieStep({ onCapture }) {
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
       .then(s => { setStream(s); if (videoRef.current) videoRef.current.srcObject = s; })
-      .catch(() => toast('Camera access denied'));
+      .catch(err => {
+        console.error('Camera error:', err);
+        let msg = '';
+        let showInstructions = false;
+        
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          msg = 'Camera access denied';
+          showInstructions = true;
+        } else if (err.name === 'NotFoundError') {
+          msg = 'No camera found on this device';
+        } else if (err.name === 'NotReadableError') {
+          msg = 'Camera is being used by another app';
+        } else if (err.name === 'OverconstrainedError') {
+          msg = 'Camera resolution not supported';
+        } else {
+          msg = 'Could not access camera';
+        }
+        
+        if (showInstructions) {
+          setBlockedMsg(`${msg}.\n\n📱 iOS Instructions:\n1. Go to Settings → Safari → Camera\n2. Select "Allow"\n3. Refresh this page`);
+        } else {
+          setBlockedMsg(msg);
+        }
+        setStep('blocked');
+      });
     return () => stream?.getTracks().forEach(t => t.stop());
   }, []);
 
@@ -421,16 +466,17 @@ function DoneStep({ doneData, onHome }) {
   if (!doneData) return null;
   const { emp, res } = doneData;
   const isIn = res.action === 'punch-in';
+  const isAutoCheckout = res.action === 'auto-checkout';
   const att = res.attendance;
 
   return (
     <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-      <div className="pop-in" style={{ width: 80, height: 80, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', background: isIn ? '#e8f5ee' : '#fdeee8', border: `2px solid ${isIn ? 'var(--success)' : 'var(--danger)'}` }}>
-        {isIn ? <LogIn size={36} color="var(--success)" /> : <LogOut size={36} color="var(--danger)" />}
+      <div className="pop-in" style={{ width: 80, height: 80, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', background: (isIn || isAutoCheckout) ? '#e8f5ee' : '#fdeee8', border: `2px solid ${(isIn || isAutoCheckout) ? 'var(--success)' : 'var(--danger)'}` }}>
+        {(isIn || isAutoCheckout) ? <LogIn size={36} color="var(--success)" /> : <LogOut size={36} color="var(--danger)" />}
       </div>
 
       <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 24, fontWeight: 800, marginBottom: 4 }}>
-        {isIn ? 'Punched In! 👋' : 'Punched Out! 👍'}
+        {isIn ? 'Punched In! 👋' : isAutoCheckout ? 'Auto Checkout! 👍' : 'Punched Out! 👍'}
       </div>
       <div style={{ fontSize: 15, color: 'var(--ink2)', marginBottom: 4 }}>{emp.name}</div>
       <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--ink2)', marginBottom: 20 }}>
