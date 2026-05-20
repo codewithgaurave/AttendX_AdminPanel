@@ -149,23 +149,23 @@ function ActionCard({
       onClick={onClick}
       style={{
         background:gradient,
-        borderRadius:25,
-        padding:"20px",
-        marginBottom:20,
+        borderRadius:20,
+        padding:"15px",
+        marginBottom:12,
         cursor:"pointer",
         display:"flex",
         alignItems:"center",
         justifyContent:"space-between",
         color:"#fff",
-        boxShadow:"0 10px 30px rgba(0,0,0,.2)"
+        boxShadow:"0 8px 20px rgba(0,0,0,.18)"
       }}
     >
       <div
         style={{
           background:"#fff",
-          width:70,
-          height:70,
-          borderRadius:20,
+          width:55,
+          height:55,
+          borderRadius:18,
           display:"flex",
           justifyContent:"center",
           alignItems:"center",
@@ -175,11 +175,11 @@ function ActionCard({
         {icon}
       </div>
 
-      <div style={{flex:1,paddingLeft:20}}>
+      <div style={{flex:1,paddingLeft:15}}>
         <div
           style={{
             fontWeight:700,
-            fontSize:26
+            fontSize:20
           }}
         >
           {title}
@@ -188,14 +188,15 @@ function ActionCard({
         <div
           style={{
             opacity:.9,
-            marginTop:6
+            marginTop:4,
+            fontSize:12
           }}
         >
           {desc}
         </div>
       </div>
 
-      <ArrowRight/>
+      <ArrowRight size={20}/>
     </div>
   );
 }
@@ -214,13 +215,13 @@ function Feature({
         textAlign:"center"
       }}
     >
-      <div>{icon}</div>
+      <div style={{fontSize:16}}>{icon}</div>
 
-      <b>{title}</b>
+      <b style={{fontSize:11}}>{title}</b>
 
       <div
         style={{
-          fontSize:12,
+          fontSize:9,
           color:"#666"
         }}
       >
@@ -241,7 +242,7 @@ height:"100vh",
 display:"flex",
 justifyContent:"center",
 alignItems:"center",
-padding:15,
+padding:10,
 overflow:"hidden"
 },
 
@@ -255,28 +256,29 @@ flexDirection:"column"
 
 header:{
 background:"#051860",
-padding:"35px",
-borderRadius:"35px 35px 0 0",
+padding:"20px 15px",
+borderRadius:"25px 25px 0 0",
 textAlign:"center",
 color:"#fff"
 },
 
 logo:{
-fontSize:55,
+fontSize:42,
 margin:0,
 fontWeight:"800"
 },
 
 portal:{
-letterSpacing:5,
-marginTop:8,
-opacity:.8
+letterSpacing:3,
+marginTop:5,
+opacity:.8,
+fontSize:12
 },
 
 line:{
-width:100,
-height:5,
-margin:"20px auto 0",
+width:80,
+height:4,
+margin:"15px auto 0",
 borderRadius:10,
 background:
 "linear-gradient(90deg,#ff9a00,#ff3eff)"
@@ -284,8 +286,8 @@ background:
 
 body:{
 background:"#fff",
-padding:"20px 25px",
-borderRadius:"0 0 35px 35px",
+padding:"15px 20px",
+borderRadius:"0 0 25px 25px",
 flex:1,
 overflow:"hidden",
 display:"flex",
@@ -293,8 +295,8 @@ flexDirection:"column"
 },
 
 avatar:{
-width:70,
-height:70,
+width:55,
+height:55,
 background:"#fff5f1",
 borderRadius:"50%",
 display:"flex",
@@ -306,25 +308,27 @@ boxShadow:"0 5px 20px rgba(0,0,0,.1)"
 
 welcome:{
 textAlign:"center",
-marginTop:20,
-marginBottom:5
+marginTop:15,
+marginBottom:3,
+fontSize:20
 },
 
 subtitle:{
 textAlign:"center",
-color:"#666"
+color:"#666",
+fontSize:13
 },
 
 clockCard:{
 background:"#fff",
-padding:"20px 25px",
-borderRadius:25,
+padding:"15px 20px",
+borderRadius:20,
 boxShadow:"0 5px 20px rgba(0,0,0,.08)",
-marginBottom:15
+marginBottom:12
 },
 
 clock:{
-fontSize:55,
+fontSize:42,
 fontWeight:"bold",
 textAlign:"center",
 color:"#071952"
@@ -334,15 +338,16 @@ date:{
 display:"flex",
 justifyContent:"center",
 alignItems:"center",
-gap:10,
-marginTop:10,
-color:"#666"
+gap:8,
+marginTop:8,
+color:"#666",
+fontSize:13
 },
 
 bottom:{
 display:"flex",
-paddingTop:15,
-gap:12,
+paddingTop:10,
+gap:8,
 marginTop:"auto"
 }
 
