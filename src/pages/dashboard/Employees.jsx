@@ -265,7 +265,7 @@ export default function Employees() {
       )}
 
       {showModal && (
-        <div className="modal-overlay active" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-overlay active">
           <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-title">
               {editId ? 'Edit Employee' : 'Add Employee'}
@@ -329,7 +329,7 @@ export default function Employees() {
       )}
 
       {whModal && (
-        <div className="modal-overlay active" onClick={e => e.target === e.currentTarget && setWhModal(null)}>
+        <div className="modal-overlay active">
           <div className="modal" style={{ maxWidth: 360 }}>
             <div className="modal-title">Working Hours — {whModal.name}<button className="modal-close" onClick={() => setWhModal(null)}>✕</button></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

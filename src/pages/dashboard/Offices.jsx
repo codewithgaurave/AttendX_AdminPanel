@@ -236,7 +236,7 @@ export default function Offices() {
 
       {/* Modal */}
       {showModal && (
-        <div className="modal-overlay active" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-overlay active">
           <div className="modal" style={{ maxWidth: 620 }}>
             <div className="modal-title">
               {editId ? 'Edit Office' : 'Add Office'}
