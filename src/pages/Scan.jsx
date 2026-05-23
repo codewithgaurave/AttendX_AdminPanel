@@ -27,10 +27,11 @@ export default function Scan() {
   const [busy, setBusy] = useState(false);
 
   const scannerRef = useRef(null);
-  const adminIdRef = useRef(adminId); // ref taaki GPS callback mein fresh value mile
+  const adminIdRef = useRef(adminId);
+  const coordsRef = useRef(null);
 
-  // adminId change hone pe ref sync karo
   useEffect(() => { adminIdRef.current = adminId; }, [adminId]);
+  useEffect(() => { coordsRef.current = coords; }, [coords]);
 
   // cleanup camera on unmount
   useEffect(() => () => stopScanner(), []);
@@ -207,7 +208,7 @@ export default function Scan() {
   const handleSelfie = (imgData) => {
     setSelfieImg(imgData);
     setStep('marking');
-    markAttendance(selEmp, coords, imgData, adminIdRef.current || adminId);
+    markAttendance(selEmp, coordsRef.current, imgData, adminIdRef.current || adminId);
   };
 
   const retry = () => { setStep('scan'); setAdminId(null); setCoords(null); setSelEmp(null); setPin(''); setConfirmPin(''); setSelfieImg(null); setSearch(''); };
@@ -249,11 +250,20 @@ export default function Scan() {
         )}
 
         <div style={{ padding: 20 }}>
-          {step === 'scan'    && <ScanStep />}
+          {step === 'scan'    && <ScanStep onScanned={text => {
+            try {
+              const data = JSON.parse(text);
+              if (!data.adminId) { toast('Invalid QR code'); return; }
+              stopScanner();
+              adminIdRef.current = data.adminId;
+              setAdminId(data.adminId);
+              setStep('gps');
+            } catch { toast('Invalid QR code'); }
+          }} />}
           {step === 'gps'     && <GPSStep />}
           {step === 'pick'    && <PickStep employees={filtered} search={search} setSearch={setSearch} onPick={handlePickName} />}
           {step === 'pin'     && <PinStep emp={selEmp} pin={pin} setPin={setPin} confirmPin={confirmPin} setConfirmPin={setConfirmPin} onSubmit={handleSetPin} />}
-          {step === 'selfie'  && <SelfieStep onCapture={handleSelfie} />}
+          {step === 'selfie'  && <SelfieStep onCapture={handleSelfie} onError={(msg) => { setBlockedMsg(msg); setStep('blocked'); }} />}
           {step === 'marking' && <MarkingStep emp={selEmp} />}
           {step === 'done'    && <DoneStep doneData={doneData} onHome={() => nav('/')} />}
           {step === 'blocked' && <BlockedStep msg={blockedMsg} onRetry={retry} onHome={() => nav('/')} />}
@@ -265,7 +275,22 @@ export default function Scan() {
 
 // ── Step Components ────────────────────────────────────────────────────────────
 
-function ScanStep() {
+function ScanStep({ onScanned }) {
+  const fileRef = useRef(null);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const scanner = new Html5Qrcode('qr-box');
+      const result = await scanner.scanFile(file, true);
+      onScanned(result);
+    } catch {
+      toast('Could not read QR code from image. Try another image.');
+    }
+    e.target.value = '';
+  };
+
   return (
     <>
       <div style={{ position: 'relative', background: '#000', borderRadius: 4, overflow: 'hidden', marginBottom: 16, minHeight: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -274,9 +299,14 @@ function ScanStep() {
         <div className="scan-line" />
         <div id="qr-box" style={{ width: '100%' }} />
       </div>
-      <div style={{ fontSize: 12, color: 'var(--ink2)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+      <div style={{ fontSize: 12, color: 'var(--ink2)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
         <Camera size={13} /> Point camera at the office QR code
       </div>
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
+      <button className="btn btn-full" onClick={() => fileRef.current.click()}
+        style={{ fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        📁 Upload QR Image
+      </button>
     </>
   );
 }
@@ -368,7 +398,7 @@ function PinStep({ emp, pin, setPin, confirmPin, setConfirmPin, onSubmit }) {
   );
 }
 
-function SelfieStep({ onCapture }) {
+function SelfieStep({ onCapture, onError }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -396,21 +426,21 @@ function SelfieStep({ onCapture }) {
           msg = 'Could not access camera';
         }
         
-        if (showInstructions) {
-          setBlockedMsg(`${msg}.\n\n📱 iOS Instructions:\n1. Go to Settings → Safari → Camera\n2. Select "Allow"\n3. Refresh this page`);
-        } else {
-          setBlockedMsg(msg);
-        }
-        setStep('blocked');
+        const fullMsg = showInstructions
+          ? `${msg}.\n\n📱 iOS Instructions:\n1. Go to Settings → Safari → Camera\n2. Select "Allow"\n3. Refresh this page`
+          : msg;
+        onError(fullMsg);
       });
     return () => stream?.getTracks().forEach(t => t.stop());
   }, []);
 
   const capture = () => {
     const v = videoRef.current, c = canvasRef.current;
+    if (!v || !c || !v.videoWidth) { onError('Camera not ready. Please try again.'); return; }
     c.width = v.videoWidth; c.height = v.videoHeight;
     c.getContext('2d').drawImage(v, 0, 0);
     const d = c.toDataURL('image/jpeg', 0.8);
+    if (!d || d === 'data:,') { onError('Failed to capture image. Please try again.'); return; }
     setImgData(d); setCaptured(true);
     stream?.getTracks().forEach(t => t.stop());
   };
