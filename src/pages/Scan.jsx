@@ -303,10 +303,10 @@ function ScanStep({ onScanned }) {
         <Camera size={13} /> Point camera at the office QR code
       </div>
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
-      <button className="btn btn-full" onClick={() => fileRef.current.click()}
+      {/* <button className="btn btn-full" onClick={() => fileRef.current.click()}
         style={{ fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
         📁 Upload QR Image
-      </button>
+      </button> */}
     </>
   );
 }
