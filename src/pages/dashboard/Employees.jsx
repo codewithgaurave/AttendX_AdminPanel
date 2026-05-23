@@ -19,6 +19,8 @@ export default function Employees() {
   const [filterOffice, setFilterOffice] = useState('all');
   const [showBin, setShowBin] = useState(false);
   const [deletedEmployees, setDeletedEmployees] = useState([]);
+  const [deletePasswordModal, setDeletePasswordModal] = useState(null); // { id, name }
+  const [deletePassword, setDeletePassword] = useState('');
 
   const load = () => {
     api.get('/admin/employees').then(r => {
@@ -59,7 +61,7 @@ export default function Employees() {
     }).catch(() => {});
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadDeleted(); }, []);
   useEffect(() => { if (showBin) loadDeleted(); }, [showBin]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -98,6 +100,19 @@ export default function Employees() {
       if (showBin) loadDeleted();
     } catch (e) {
       toast(e.response?.data?.message || 'Failed to move to bin', 4000, 'error');
+    }
+  };
+
+  const permanentDelete = async () => {
+    if (!deletePasswordModal) return;
+    try {
+      await api.delete(`/admin/employees/${deletePasswordModal.id}/permanent`, { data: { password: deletePassword } });
+      toast(`${deletePasswordModal.name} permanently deleted`, 3000, 'success');
+      setDeletePasswordModal(null);
+      setDeletePassword('');
+      loadDeleted();
+    } catch (e) {
+      toast(e.response?.data?.message || 'Failed to delete', 4000, 'error');
     }
   };
 
@@ -216,6 +231,9 @@ export default function Employees() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn btn-success btn-sm" onClick={() => restoreEmployee(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <RotateCcw size={12} />Restore
+                </button>
+                <button className="btn btn-danger btn-sm" onClick={() => { setDeletePasswordModal({ id: e._id, name: e.name }); setDeletePassword(''); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Trash2 size={12} />Delete
                 </button>
               </div>
             </div>
@@ -337,6 +355,36 @@ export default function Employees() {
               <div className="form-group"><label>End Time</label><input className="form-inp" type="time" value={whModal.workingHours.endTime} onChange={e => setWhModal(w => ({ ...w, workingHours: { ...w.workingHours, endTime: e.target.value } }))} /></div>
             </div>
             <button className="btn btn-primary btn-full" onClick={saveWH}>Save Working Hours</button>
+          </div>
+        </div>
+      )}
+
+      {deletePasswordModal && (
+        <div className="modal-overlay active">
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-title">
+              Permanently Delete Employee
+              <button className="modal-close" onClick={() => { setDeletePasswordModal(null); setDeletePassword(''); }}>✕</button>
+            </div>
+            <div style={{ background: '#fdeee8', border: '1px solid #f0c0b0', borderRadius: 4, padding: 12, marginBottom: 16, fontSize: 13, color: 'var(--danger)' }}>
+              ⚠️ <strong>{deletePasswordModal.name}</strong> permanently delete ho jayega. Ye action undo nahi ho sakta.
+            </div>
+            <div className="form-group">
+              <label>Apna Password Enter Karo *</label>
+              <input
+                className="form-inp"
+                type="password"
+                placeholder="Enter your admin password"
+                value={deletePassword}
+                onChange={e => setDeletePassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && permanentDelete()}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => { setDeletePasswordModal(null); setDeletePassword(''); }}>Cancel</button>
+              <button className="btn btn-danger btn-sm" style={{ flex: 1 }} onClick={permanentDelete}>Permanently Delete</button>
+            </div>
           </div>
         </div>
       )}
