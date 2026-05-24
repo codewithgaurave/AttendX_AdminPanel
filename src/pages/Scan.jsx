@@ -277,6 +277,35 @@ export default function Scan() {
 
 function ScanStep({ onScanned }) {
   const fileRef = useRef(null);
+  const [camStatus, setCamStatus] = useState('idle'); // idle | requesting | granted | denied
+
+  const requestCamera = async () => {
+    setCamStatus('requesting');
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      s.getTracks().forEach(t => t.stop()); // sirf permission leni hai, stream band karo
+      setCamStatus('granted');
+      // scanner restart karo
+      const el = document.getElementById('qr-box');
+      if (!el) return;
+      const sc = new Html5Qrcode('qr-box');
+      sc.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 200, height: 200 } },
+        text => {
+          try {
+            const data = JSON.parse(text);
+            if (!data.adminId) { toast('Invalid QR code'); return; }
+            sc.stop().catch(() => {});
+            onScanned(text);
+          } catch { toast('Invalid QR code'); }
+        },
+        () => {}
+      ).catch(() => setCamStatus('denied'));
+    } catch {
+      setCamStatus('denied');
+    }
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -302,11 +331,21 @@ function ScanStep({ onScanned }) {
       <div style={{ fontSize: 12, color: 'var(--ink2)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
         <Camera size={13} /> Point camera at the office QR code
       </div>
+
+      {/* Camera permission button — auto nahi aaya to manually lene ke liye */}
+      {camStatus !== 'granted' && (
+        <button
+          className="btn btn-full"
+          onClick={requestCamera}
+          disabled={camStatus === 'requesting'}
+          style={{ fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8, background: camStatus === 'denied' ? 'var(--danger)' : undefined, color: camStatus === 'denied' ? '#fff' : undefined, borderColor: camStatus === 'denied' ? 'var(--danger)' : undefined }}
+        >
+          <Camera size={14} />
+          {camStatus === 'requesting' ? 'Requesting Camera…' : camStatus === 'denied' ? '🚫 Camera Denied — Tap to Retry' : '📷 Enable Camera Access'}
+        </button>
+      )}
+
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
-      {/* <button className="btn btn-full" onClick={() => fileRef.current.click()}
-        style={{ fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-        📁 Upload QR Image
-      </button> */}
     </>
   );
 }
