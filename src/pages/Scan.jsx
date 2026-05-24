@@ -280,12 +280,36 @@ function ScanStep({ onScanned }) {
   const [camStatus, setCamStatus] = useState('idle'); // idle | requesting | granted | denied
 
   const requestCamera = async () => {
+    if (camStatus === 'denied') {
+      // Browser settings open karo
+      await Swal.fire({
+        title: 'Camera Access Blocked',
+        html: `
+          <div style="text-align:left; font-size:13px; line-height:1.8">
+            <b>Browser ne camera block kar diya hai.</b><br/>Manually allow karo:<br/><br/>
+            <b>Chrome (Android/Desktop):</b><br/>
+            Address bar ke left mein 🔒 icon pe click karo → Camera → Allow<br/><br/>
+            <b>Safari (iPhone/iPad):</b><br/>
+            Settings → Safari → Camera → Allow<br/><br/>
+            <b>Firefox:</b><br/>
+            Address bar mein 🔒 → Permissions → Camera → Allow<br/><br/>
+            Allow karne ke baad page refresh karo.
+          </div>`,
+        confirmButtonText: '🔄 Refresh Page',
+        showCancelButton: true,
+        cancelButtonText: 'Close',
+        confirmButtonColor: '#c84b2f',
+        background: '#faf7f2',
+        color: '#1a1612',
+      }).then(r => { if (r.isConfirmed) window.location.reload(); });
+      return;
+    }
+
     setCamStatus('requesting');
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-      s.getTracks().forEach(t => t.stop()); // sirf permission leni hai, stream band karo
+      s.getTracks().forEach(t => t.stop());
       setCamStatus('granted');
-      // scanner restart karo
       const el = document.getElementById('qr-box');
       if (!el) return;
       const sc = new Html5Qrcode('qr-box');
@@ -332,16 +356,26 @@ function ScanStep({ onScanned }) {
         <Camera size={13} /> Point camera at the office QR code
       </div>
 
-      {/* Camera permission button — auto nahi aaya to manually lene ke liye */}
       {camStatus !== 'granted' && (
         <button
           className="btn btn-full"
           onClick={requestCamera}
           disabled={camStatus === 'requesting'}
-          style={{ fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8, background: camStatus === 'denied' ? 'var(--danger)' : undefined, color: camStatus === 'denied' ? '#fff' : undefined, borderColor: camStatus === 'denied' ? 'var(--danger)' : undefined }}
+          style={{
+            fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            marginBottom: 8,
+            background: camStatus === 'denied' ? 'var(--danger)' : undefined,
+            color: camStatus === 'denied' ? '#fff' : undefined,
+            borderColor: camStatus === 'denied' ? 'var(--danger)' : undefined
+          }}
         >
           <Camera size={14} />
-          {camStatus === 'requesting' ? 'Requesting Camera…' : camStatus === 'denied' ? '🚫 Camera Denied — Tap to Retry' : '📷 Enable Camera Access'}
+          {camStatus === 'requesting'
+            ? 'Requesting Camera…'
+            : camStatus === 'denied'
+            ? '🚫 Camera Blocked — Tap for Instructions'
+            : '📷 Enable Camera Access'}
         </button>
       )}
 
