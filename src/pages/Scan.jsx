@@ -295,38 +295,11 @@ export default function Scan() {
 
 function ScanStep({ onScanned }) {
   const fileRef = useRef(null);
-  const [camStatus, setCamStatus] = useState('idle'); // idle | requesting | granted | denied
+  const [camStatus, setCamStatus] = useState('idle');
+  const [showCamHelp, setShowCamHelp] = useState(false);
 
   const requestCamera = async () => {
-    if (camStatus === 'denied') {
-      // Browser settings open karo
-      await Swal.fire({
-        title: 'Camera Access Blocked',
-        html: `
-          <div style="text-align:left; font-size:13px; line-height:2">
-            <b>Chrome Browser me Camera Allow karo</b><br/>
-            <span style="color:#888">1.</span> Mobile me Chrome open rakho<br/>
-            <span style="color:#888">2.</span> Address bar me <b>attenzo.in</b> ke left side jo 🔒 ya ⚙️ icon hai uspe tap karo<br/>
-            <span style="color:#888">3.</span> <b>Permissions</b> ya <b>Site settings</b> pe jao<br/>
-            <span style="color:#888">4.</span> <b>Camera</b> option kholo<br/>
-            <span style="color:#888">5.</span> Usko <b>Allow</b> kar do<br/>
-            <span style="color:#888">6.</span> Fir page ko <b>refresh</b> karo<br/><br/>
-            <b style="color:#c84b2f">Agar fir bhi nahi chale:</b><br/>
-            <span style="color:#888">1.</span> Phone <b>Settings</b> → <b>Apps</b> → <b>Chrome</b><br/>
-            <span style="color:#888">2.</span> <b>Permissions</b> → <b>Camera</b><br/>
-            <span style="color:#888">3.</span> <b>Allow only while using the app</b> select karo<br/>
-            <span style="color:#888">4.</span> Browser dubara open karke QR scan karo
-          </div>`,
-        confirmButtonText: '🔄 Refresh Page',
-        showCancelButton: true,
-        cancelButtonText: 'Close',
-        confirmButtonColor: '#c84b2f',
-        background: '#faf7f2',
-        color: '#1a1612',
-      }).then(r => { if (r.isConfirmed) window.location.reload(); });
-      return;
-    }
-
+    if (camStatus === 'denied') { setShowCamHelp(true); return; }
     setCamStatus('requesting');
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
@@ -360,11 +333,60 @@ function ScanStep({ onScanned }) {
       const scanner = new Html5Qrcode('qr-box');
       const result = await scanner.scanFile(file, true);
       onScanned(result);
-    } catch {
-      toast('Could not read QR code from image. Try another image.');
-    }
+    } catch { toast('Could not read QR code from image. Try another image.'); }
     e.target.value = '';
   };
+
+  if (showCamHelp) {
+    return (
+      <div style={{ padding: '8px 0' }}>
+        <div style={{ background: '#fdeee8', border: '1.5px solid var(--danger)', borderRadius: 6, padding: 16, marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 6 }}>📵</div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--danger)', marginBottom: 4 }}>Camera Blocked Hai</div>
+          <div style={{ fontSize: 12, color: 'var(--ink2)' }}>Browser ne camera ka access block kar diya hai. Neeche steps follow karo.</div>
+        </div>
+
+        <div style={{ background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 6, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>📱 Chrome Browser se Allow karo</div>
+          {[
+            { n: 1, text: <>Address bar mein <b>attenzo.in</b> ke left side 🔒 icon pe tap karo</> },
+            { n: 2, text: <><b>Permissions</b> ya <b>Site settings</b> pe tap karo</> },
+            { n: 3, text: <><b>Camera</b> → <b>Allow</b> karo</> },
+            { n: 4, text: <>Neeche <b>"Refresh Page"</b> button dabao</> },
+          ].map(s => (
+            <div key={s.n} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+              <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{s.n}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.5 }}>{s.text}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 6, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>⚙️ Phone Settings se Allow karo</div>
+          {[
+            { n: 1, text: <>Phone <b>Settings</b> → <b>Apps</b> → <b>Chrome</b></> },
+            { n: 2, text: <><b>Permissions</b> → <b>Camera</b></> },
+            { n: 3, text: <><b>Allow only while using the app</b> select karo</> },
+            { n: 4, text: <>Browser mein wapas aao aur <b>Refresh</b> karo</> },
+          ].map(s => (
+            <div key={s.n} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+              <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: 'var(--ink2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{s.n}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.5 }}>{s.text}</div>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn btn-primary btn-full" onClick={() => window.location.reload()}
+          style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          🔄 Refresh Page
+        </button>
+        <button className="btn btn-full" onClick={() => setShowCamHelp(false)}
+          style={{ fontSize: 13 }}>
+          ← Wapas Jao
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -377,30 +399,17 @@ function ScanStep({ onScanned }) {
       <div style={{ fontSize: 12, color: 'var(--ink2)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
         <Camera size={13} /> Point camera at the office QR code
       </div>
-
       {camStatus !== 'granted' && (
-        <button
-          className="btn btn-full"
-          onClick={requestCamera}
-          disabled={camStatus === 'requesting'}
-          style={{
-            fontSize: 13,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            marginBottom: 8,
+        <button className="btn btn-full" onClick={requestCamera} disabled={camStatus === 'requesting'}
+          style={{ fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8,
             background: camStatus === 'denied' ? 'var(--danger)' : undefined,
             color: camStatus === 'denied' ? '#fff' : undefined,
-            borderColor: camStatus === 'denied' ? 'var(--danger)' : undefined
-          }}
+            borderColor: camStatus === 'denied' ? 'var(--danger)' : undefined }}
         >
           <Camera size={14} />
-          {camStatus === 'requesting'
-            ? 'Requesting Camera…'
-            : camStatus === 'denied'
-            ? '🚫 Camera Blocked — Tap for Instructions'
-            : '📷 Enable Camera Access'}
+          {camStatus === 'requesting' ? 'Requesting Camera…' : camStatus === 'denied' ? '🚫 Camera Blocked — Kaise Allow Kare?' : '📷 Enable Camera Access'}
         </button>
       )}
-
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
     </>
   );
