@@ -188,6 +188,24 @@ export default function Scan() {
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handlePickName = (emp) => {
     setSelEmp(emp);
+    const aid = adminIdRef.current || adminId;
+    const storedPin = localStorage.getItem(`pin_${aid}`);
+    const storedEmpRaw = localStorage.getItem(`emp_${aid}`);
+    // returning user — pin already set hai, directly mark karo
+    if (storedPin && storedEmpRaw) {
+      try {
+        const storedEmp = JSON.parse(storedEmpRaw);
+        if (storedEmp._id === emp._id) {
+          if (emp.selfieRequired) {
+            setStep('selfie');
+          } else {
+            setStep('marking');
+            markAttendance(emp, coords, null, aid);
+          }
+          return;
+        }
+      } catch {}
+    }
     setStep('pin');
   };
 
@@ -285,15 +303,19 @@ function ScanStep({ onScanned }) {
       await Swal.fire({
         title: 'Camera Access Blocked',
         html: `
-          <div style="text-align:left; font-size:13px; line-height:1.8">
-            <b>Browser ne camera block kar diya hai.</b><br/>Manually allow karo:<br/><br/>
-            <b>Chrome (Android/Desktop):</b><br/>
-            Address bar ke left mein 🔒 icon pe click karo → Camera → Allow<br/><br/>
-            <b>Safari (iPhone/iPad):</b><br/>
-            Settings → Safari → Camera → Allow<br/><br/>
-            <b>Firefox:</b><br/>
-            Address bar mein 🔒 → Permissions → Camera → Allow<br/><br/>
-            Allow karne ke baad page refresh karo.
+          <div style="text-align:left; font-size:13px; line-height:2">
+            <b>Chrome Browser me Camera Allow karo</b><br/>
+            <span style="color:#888">1.</span> Mobile me Chrome open rakho<br/>
+            <span style="color:#888">2.</span> Address bar me <b>attenzo.in</b> ke left side jo 🔒 ya ⚙️ icon hai uspe tap karo<br/>
+            <span style="color:#888">3.</span> <b>Permissions</b> ya <b>Site settings</b> pe jao<br/>
+            <span style="color:#888">4.</span> <b>Camera</b> option kholo<br/>
+            <span style="color:#888">5.</span> Usko <b>Allow</b> kar do<br/>
+            <span style="color:#888">6.</span> Fir page ko <b>refresh</b> karo<br/><br/>
+            <b style="color:#c84b2f">Agar fir bhi nahi chale:</b><br/>
+            <span style="color:#888">1.</span> Phone <b>Settings</b> → <b>Apps</b> → <b>Chrome</b><br/>
+            <span style="color:#888">2.</span> <b>Permissions</b> → <b>Camera</b><br/>
+            <span style="color:#888">3.</span> <b>Allow only while using the app</b> select karo<br/>
+            <span style="color:#888">4.</span> Browser dubara open karke QR scan karo
           </div>`,
         confirmButtonText: '🔄 Refresh Page',
         showCancelButton: true,
