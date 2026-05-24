@@ -508,33 +508,26 @@ function SelfieStep({ onCapture, onError }) {
   const [stream, setStream] = useState(null);
   const [captured, setCaptured] = useState(false);
   const [imgData, setImgData] = useState(null);
+  const [camBlocked, setCamBlocked] = useState(false);
 
-  useEffect(() => {
+  const startCamera = () => {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
       .then(s => { setStream(s); if (videoRef.current) videoRef.current.srcObject = s; })
       .catch(err => {
-        console.error('Camera error:', err);
-        let msg = '';
-        let showInstructions = false;
-        
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          msg = 'Camera access denied';
-          showInstructions = true;
+          setCamBlocked(true);
         } else if (err.name === 'NotFoundError') {
-          msg = 'No camera found on this device';
+          onError('No camera found on this device');
         } else if (err.name === 'NotReadableError') {
-          msg = 'Camera is being used by another app';
-        } else if (err.name === 'OverconstrainedError') {
-          msg = 'Camera resolution not supported';
+          onError('Camera is being used by another app');
         } else {
-          msg = 'Could not access camera';
+          onError('Could not access camera');
         }
-        
-        const fullMsg = showInstructions
-          ? `${msg}.\n\n📱 iOS Instructions:\n1. Go to Settings → Safari → Camera\n2. Select "Allow"\n3. Refresh this page`
-          : msg;
-        onError(fullMsg);
       });
+  };
+
+  useEffect(() => {
+    startCamera();
     return () => stream?.getTracks().forEach(t => t.stop());
   }, []);
 
@@ -554,6 +547,48 @@ function SelfieStep({ onCapture, onError }) {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
       .then(s => { setStream(s); if (videoRef.current) videoRef.current.srcObject = s; });
   };
+
+  if (camBlocked) {
+    return (
+      <div style={{ padding: '8px 0' }}>
+        <div style={{ background: '#fdeee8', border: '1.5px solid var(--danger)', borderRadius: 6, padding: 16, marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 6 }}>📵</div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--danger)', marginBottom: 4 }}>Camera Blocked Hai</div>
+          <div style={{ fontSize: 12, color: 'var(--ink2)' }}>Selfie ke liye camera allow karna zaroori hai.</div>
+        </div>
+        <div style={{ background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 6, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📱 Chrome Browser se Allow karo</div>
+          {[
+            { n: 1, text: <>Address bar mein <b>attenzo.in</b> ke left 🔒 icon tap karo</> },
+            { n: 2, text: <><b>Permissions</b> → <b>Camera</b> → <b>Allow</b></> },
+            { n: 3, text: <>Neeche <b>Refresh Page</b> dabao</> },
+          ].map(s => (
+            <div key={s.n} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+              <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{s.n}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.5 }}>{s.text}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 6, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>⚙️ Phone Settings se Allow karo</div>
+          {[
+            { n: 1, text: <><b>Settings</b> → <b>Apps</b> → <b>Chrome</b></> },
+            { n: 2, text: <><b>Permissions</b> → <b>Camera</b> → <b>Allow</b></> },
+            { n: 3, text: <>Browser mein wapas aao aur Refresh karo</> },
+          ].map(s => (
+            <div key={s.n} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+              <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: 'var(--ink2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{s.n}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.5 }}>{s.text}</div>
+            </div>
+          ))}
+        </div>
+        <button className="btn btn-primary btn-full" onClick={() => window.location.reload()}
+          style={{ fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          🔄 Refresh Page
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ textAlign: 'center' }}>
