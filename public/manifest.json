@@ -1,0 +1,23 @@
+{
+  "short_name": "AttendX Admin",
+  "name": "AttendX Admin Panel",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#faf7f2",
+  "theme_color": "#faf7f2",
+  "display": "standalone",
+  "orientation": "portrait"
+}
