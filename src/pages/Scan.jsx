@@ -19,7 +19,6 @@ export default function Scan() {
   const [selEmp, setSelEmp] = useState(null);
   const [coords, setCoords] = useState(null);
   const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
   const [selfieImg, setSelfieImg] = useState(null);
   const [doneData, setDoneData] = useState(null);
   const [blockedMsg, setBlockedMsg] = useState('');
@@ -116,10 +115,12 @@ export default function Scan() {
 
     if (storedPin && storedEmpRaw) {
       try {
-        const { data } = await api.get(`/attendance/employees/${aid}`);
         const storedEmp = JSON.parse(storedEmpRaw);
-        const freshEmp = data.find(e => e._id === storedEmp._id);
-        if (freshEmp) {
+        // Fetch specific employee info directly from the public endpoint
+        const { data: freshEmp } = await api.get(`/attendance/employee-info/${storedEmp._id}`);
+        
+        // Ensure employee is active and isPinVerified is true
+        if (freshEmp && freshEmp.isActive && freshEmp.isPinVerified) {
           setSelEmp(freshEmp);
           if (freshEmp.selfieRequired) {
             setStep('selfie');
@@ -128,15 +129,26 @@ export default function Scan() {
             markAttendance(freshEmp, location, null, aid);
           }
         } else {
+          // If employee is deactivated or PIN was reset (isPinVerified is false)
           localStorage.removeItem(`pin_${aid}`);
           localStorage.removeItem(`emp_${aid}`);
+          const { data } = await api.get(`/attendance/employees/${aid}`);
           setEmployees(data);
           setStep('pick');
         }
       } catch {
-        toast('Could not connect to server. Please retry.');
-        setBlockedMsg('Server connection failed.');
-        setStep('blocked');
+        // Clear local storage and let them select a name again if employee is deactivated/not found
+        localStorage.removeItem(`pin_${aid}`);
+        localStorage.removeItem(`emp_${aid}`);
+        try {
+          const { data } = await api.get(`/attendance/employees/${aid}`);
+          setEmployees(data);
+          setStep('pick');
+        } catch {
+          toast('Could not connect to server. Please retry.');
+          setBlockedMsg('Server connection failed.');
+          setStep('blocked');
+        }
       }
     } else {
       try {
@@ -209,17 +221,31 @@ export default function Scan() {
     setStep('pin');
   };
 
-  const handleSetPin = () => {
+  const handleVerifyPin = async () => {
     if (pin.length !== 4) { toast('Enter 4-digit PIN'); return; }
-    if (pin !== confirmPin) { toast('PINs do not match'); return; }
-    const aid = adminIdRef.current || adminId;
-    localStorage.setItem(`pin_${aid}`, pin);
-    localStorage.setItem(`emp_${aid}`, JSON.stringify(selEmp));
-    if (selEmp.selfieRequired) {
-      setStep('selfie');
-    } else {
-      setStep('marking');
-      markAttendance(selEmp, coords, null, aid);
+    setBusy(true);
+    try {
+      const aid = adminIdRef.current || adminId;
+      await api.post('/attendance/verify-pin', {
+        employeeId: selEmp._id,
+        pin: pin
+      });
+      
+      localStorage.setItem(`pin_${aid}`, pin);
+      localStorage.setItem(`emp_${aid}`, JSON.stringify(selEmp));
+      
+      toast('PIN verified successfully! ✓', 3000, 'success');
+      
+      if (selEmp.selfieRequired) {
+        setStep('selfie');
+      } else {
+        setStep('marking');
+        markAttendance(selEmp, coords, null, aid);
+      }
+    } catch (e) {
+      toast(e.response?.data?.message || 'Incorrect PIN. Please contact your Admin.', 4000, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -229,7 +255,7 @@ export default function Scan() {
     markAttendance(selEmp, coordsRef.current, imgData, adminIdRef.current || adminId);
   };
 
-  const retry = () => { setStep('scan'); setAdminId(null); setCoords(null); setSelEmp(null); setPin(''); setConfirmPin(''); setSelfieImg(null); setSearch(''); };
+  const retry = () => { setStep('scan'); setAdminId(null); setCoords(null); setSelEmp(null); setPin(''); setSelfieImg(null); setSearch(''); };
 
   const filtered = employees.filter(e =>
     e.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -280,7 +306,7 @@ export default function Scan() {
           }} />}
           {step === 'gps'     && <GPSStep />}
           {step === 'pick'    && <PickStep employees={filtered} search={search} setSearch={setSearch} onPick={handlePickName} />}
-          {step === 'pin'     && <PinStep emp={selEmp} pin={pin} setPin={setPin} confirmPin={confirmPin} setConfirmPin={setConfirmPin} onSubmit={handleSetPin} />}
+          {step === 'pin'     && <PinStep emp={selEmp} pin={pin} setPin={setPin} onSubmit={handleVerifyPin} />}
           {step === 'selfie'  && <SelfieStep onCapture={handleSelfie} onError={(msg) => { setBlockedMsg(msg); setStep('blocked'); }} />}
           {step === 'marking' && <MarkingStep emp={selEmp} />}
           {step === 'done'    && <DoneStep doneData={doneData} onHome={() => nav('/')} />}
@@ -471,13 +497,13 @@ function PickStep({ employees, search, setSearch, onPick }) {
   );
 }
 
-function PinStep({ emp, pin, setPin, confirmPin, setConfirmPin, onSubmit }) {
+function PinStep({ emp, pin, setPin, onSubmit }) {
   if (!emp) return null;
   return (
     <div style={{ textAlign: 'center', padding: '8px 0' }}>
       <div className="emp-avt" style={{ width: 60, height: 60, fontSize: 20, fontWeight: 800, margin: '0 auto 12px', borderRadius: 8 }}>{avt(emp.name)}</div>
       <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Hi, {emp.name}!</div>
-      <div style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 20 }}>Set a 4-digit PIN for future attendance</div>
+      <div style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 20 }}>Enter the 4-digit PIN provided by your Admin</div>
 
       <div style={{ maxWidth: 260, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
@@ -486,16 +512,10 @@ function PinStep({ emp, pin, setPin, confirmPin, setConfirmPin, onSubmit }) {
             value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
             placeholder="••••" style={{ textAlign: 'center', fontSize: 22, letterSpacing: 6 }} autoFocus />
         </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6, textAlign: 'left' }}>Confirm PIN</label>
-          <input className="form-inp" type="password" inputMode="numeric" maxLength={4}
-            value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-            placeholder="••••" style={{ textAlign: 'center', fontSize: 22, letterSpacing: 6 }} />
-        </div>
         <button className="btn btn-primary btn-full" onClick={onSubmit}
-          disabled={pin.length !== 4 || confirmPin.length !== 4}
+          disabled={pin.length !== 4}
           style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>
-          Set PIN & Continue →
+          Verify PIN & Continue →
         </button>
       </div>
     </div>

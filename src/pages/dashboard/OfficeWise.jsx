@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import api from '../../utils/api';
 import { avt, fmtDate, today } from '../../utils/api';
 import { MapPin, Users, CheckCircle, XCircle, Clock } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { toast } from '../../components/Toast';
 
 export default function OfficeWise() {
   const [offices, setOffices] = useState([]);
@@ -11,6 +13,38 @@ export default function OfficeWise() {
   const [employees, setEmployees] = useState([]);
   const [attReport, setAttReport] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const downloadSlip = async (emp) => {
+    console.log('Download slip clicked for employee:', emp.name);
+    const month = new Date().toISOString().slice(0, 7);
+    const result = await Swal.fire({
+      title: 'Select Month',
+      input: 'month',
+      inputValue: month,
+      showCancelButton: true,
+      confirmButtonText: 'Download PDF',
+      background: '#faf7f2',
+      color: '#1a1612',
+    });
+    if (result.isDismissed || !result.value) return;
+    const selectedMonth = result.value;
+    try {
+      const token = localStorage.getItem('token');
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      const url = `${base.replace('/api', '')}/api/salary-slip/${emp._id}?month=${selectedMonth}&token=${token}`;
+      const newWindow = window.open(url, '_blank');
+      if (!newWindow) {
+        console.error('Popup blocked');
+        toast('Please allow popups for this site');
+      } else {
+        console.log('Window opened successfully');
+        toast('Salary slip opened in new tab');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      toast('Failed to open salary slip');
+    }
+  };
 
   useEffect(() => { api.get('/admin/offices').then(r => setOffices(r.data.offices || r.data || [])); }, []);
 
@@ -98,8 +132,11 @@ export default function OfficeWise() {
                       </span>
                     </div>
                     {e.monthlySalary > 0 && (
-                      <div style={{ marginTop: 8, fontSize: 12, fontFamily: 'DM Mono, monospace', color: 'var(--success)' }}>
-                        ₹ {e.monthlySalary.toLocaleString('en-IN')} / month
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                        <span style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', color: 'var(--success)', fontWeight: 600 }}>
+                          ₹ {e.monthlySalary.toLocaleString('en-IN')} / month
+                        </span>
+                        <button className="btn btn-sm" onClick={() => downloadSlip(e)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', fontSize: 10 }} title="Download Salary Slip">💰 Slip</button>
                       </div>
                     )}
                   </div>

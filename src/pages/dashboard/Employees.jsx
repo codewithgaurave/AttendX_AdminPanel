@@ -4,10 +4,10 @@ import { avt } from '../../utils/api';
 import { toast } from '../../components/Toast';
 import { exportEmployees } from '../../utils/exportExcel';
 import Swal from 'sweetalert2';
-import { UserPlus, Pencil, Clock, Trash2, Users, Download, Archive, RotateCcw } from 'lucide-react';
+import { UserPlus, Pencil, Clock, Trash2, Users, Download, Archive, RotateCcw, Key } from 'lucide-react';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const emptyForm = { name: '', email: '', phone: '', employeeCode: '', designation: '', joiningDate: '', officeId: '', department: '', address: '', emergencyContact: '', bloodGroup: '', gender: '', dob: '', monthlySalary: '', weeklyOff: [0], workingHours: { startTime: '09:00', endTime: '18:00' }, selfieRequired: false };
+const emptyForm = { name: '', email: '', phone: '', employeeCode: '', designation: '', joiningDate: '', officeId: '', department: '', address: '', emergencyContact: '', bloodGroup: '', gender: '', dob: '', monthlySalary: '', weeklyOff: [0], workingHours: { startTime: '09:00', endTime: '18:00' }, selfieRequired: false, pin: '' };
 
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
@@ -69,6 +69,8 @@ export default function Employees() {
   const save = async () => {
     if (!form.name || !form.phone || !form.employeeCode || !form.designation || !form.joiningDate || !form.officeId)
       return toast('Fill all mandatory fields');
+    if (!form.pin || form.pin.length !== 4 || !/^\d+$/.test(form.pin))
+      return toast('4-Digit numeric PIN is mandatory');
     try {
       if (editId) await api.put(`/admin/employees/${editId}`, form);
       else await api.post('/admin/employees', form);
@@ -127,6 +129,44 @@ export default function Employees() {
     }
   };
 
+  const handleResetPin = async (emp) => {
+    const result = await Swal.fire({
+      title: `Reset PIN for ${emp.name}`,
+      text: 'Enter a new 4-digit numeric PIN for this employee:',
+      input: 'password',
+      inputPlaceholder: '••••',
+      inputAttributes: {
+        maxlength: '4',
+        autocapitalize: 'off',
+        autocorrect: 'off',
+        inputmode: 'numeric',
+        pattern: '[0-9]*'
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Reset PIN',
+      confirmButtonColor: 'var(--accent)',
+      cancelButtonColor: '#5a5248',
+      background: '#faf7f2',
+      color: '#1a1612',
+      preConfirm: (value) => {
+        if (!value || value.length !== 4 || !/^\d+$/.test(value)) {
+          Swal.showValidationMessage('PIN must be exactly 4 digits');
+        }
+        return value;
+      }
+    });
+
+    if (result.isConfirmed && result.value) {
+      try {
+        await api.patch(`/admin/employees/${emp._id}/reset-pin`, { pin: result.value });
+        toast('PIN reset successful! Name will appear in selection list again ✓', 4000, 'success');
+        load();
+      } catch (e) {
+        toast(e.response?.data?.message || 'Failed to reset PIN', 4000, 'error');
+      }
+    }
+  };
+
   const saveWH = async () => {
     if (!whModal) return;
     try {
@@ -142,7 +182,7 @@ export default function Employees() {
   };
 
   const openEdit = (e) => {
-    setForm({ name: e.name, email: e.email, phone: e.phone, employeeCode: e.employeeCode, designation: e.designation, joiningDate: e.joiningDate?.slice(0,10) || '', officeId: e.officeId?._id || e.officeId, department: e.department || '', address: e.address || '', emergencyContact: e.emergencyContact || '', bloodGroup: e.bloodGroup || '', gender: e.gender || '', dob: e.dob?.slice(0,10) || '', monthlySalary: e.monthlySalary || '', weeklyOff: e.weeklyOff || [0], workingHours: e.workingHours || { startTime: '09:00', endTime: '18:00' }, selfieRequired: e.selfieRequired || false });
+    setForm({ name: e.name, email: e.email, phone: e.phone, employeeCode: e.employeeCode, designation: e.designation, joiningDate: e.joiningDate?.slice(0,10) || '', officeId: e.officeId?._id || e.officeId, department: e.department || '', address: e.address || '', emergencyContact: e.emergencyContact || '', bloodGroup: e.bloodGroup || '', gender: e.gender || '', dob: e.dob?.slice(0,10) || '', monthlySalary: e.monthlySalary || '', weeklyOff: e.weeklyOff || [0], workingHours: e.workingHours || { startTime: '09:00', endTime: '18:00' }, selfieRequired: e.selfieRequired || false, pin: e.pin || '' });
     setEditId(e._id); setShowModal(true);
   };
 
@@ -267,6 +307,7 @@ export default function Employees() {
                     <button className="btn btn-sm" onClick={() => openEdit(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Pencil size={12} />Edit</button>
                     <button className="btn btn-sm" onClick={() => setWhModal({ ...e, workingHours: { ...e.workingHours } })} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} />Hours</button>
                     {e.monthlySalary > 0 && <button className="btn btn-sm" onClick={() => downloadSlip(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }} title="Download Salary Slip">💰 Slip</button>}
+                    <button className="btn btn-sm" onClick={() => handleResetPin(e)} style={{ display: 'flex', alignItems: 'center', gap: 5 }} title="Reset PIN"><Key size={12} />PIN</button>
                     <button className="btn btn-danger btn-sm" onClick={() => deleteEmployee(e._id, e.name)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Trash2 size={12} />Delete</button>
                   </>
                 ) : (
@@ -297,6 +338,18 @@ export default function Employees() {
               <div className="form-group"><label>Phone *</label><input className="form-inp" value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
               <div className="form-group"><label>Designation *</label><input className="form-inp" value={form.designation} onChange={e => set('designation', e.target.value)} /></div>
               <div className="form-group"><label>Joining Date *</label><input className="form-inp" type="date" value={form.joiningDate} onChange={e => set('joiningDate', e.target.value)} /></div>
+              <div className="form-group">
+                <label>4-Digit PIN *</label>
+                <input
+                  className="form-inp"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={form.pin || ''}
+                  onChange={e => set('pin', e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••"
+                />
+              </div>
             </div>
             <div className="form-group"><label>Office *</label>
               <select className="form-inp" value={form.officeId} onChange={e => set('officeId', e.target.value)}>
