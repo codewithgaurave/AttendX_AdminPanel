@@ -368,13 +368,13 @@ function DateView({ adminId }) {
   const absent  = filterByOffice(report?.absent  || []);
   const summary = report?.summary;
 
-  const markAttendance = async (employeeId, status, reason) => {
+  const markAttendance = async (employeeId, status, noteOrReason) => {
     try {
       if (status === 'checkout') {
-        await api.post('/attendance/force-checkout', { employeeId, date, reason });
+        await api.post('/attendance/force-checkout', { employeeId, date, reason: noteOrReason });
         toast('Checkout done ✓', 2000, 'success');
       } else {
-        await api.post('/attendance/mark', { employeeId, date, status });
+        await api.post('/attendance/mark', { employeeId, date, status, note: noteOrReason });
         toast(`Successfully marked as ${status}`, 2000, 'success');
       }
       setLoading(true);
@@ -1014,6 +1014,11 @@ function showDayDetailsModal(date, dayData, offices, selOffice) {
                     <div style="min-width: 0;">
                       <div style="font-weight: 600; color: #1f2937; font-size: 13px; line-height: 1.3; white-space: nowrap;">${r.name || 'Unknown'}</div>
                       <div style="font-size: 11px; color: #6b7280; font-family: 'DM Mono', monospace; margin-top: 1px;">${r.employeeCode || ''}</div>
+                      ${r.note ? `
+                        <div style="font-size: 10px; color: #6366f1; margin-top: 4px; display: flex; align-items: center; gap: 4px; font-style: italic; font-weight: 600;">
+                          📝 ${r.note}
+                        </div>
+                      ` : ''}
                     </div>
                   </div>
                 </td>
@@ -1127,17 +1132,33 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
       return;
     }
 
+    // Ask for note/remark (optional)
+    const { value: note, isConfirmed } = await Swal.fire({
+      title: `Mark as ${newStatus === 'present' ? 'Present' : newStatus === 'half-day' ? 'Half Day' : 'Absent'}`,
+      input: 'text',
+      inputLabel: 'Add Note/Remark (Optional)',
+      inputPlaceholder: 'e.g. Work from home, late permission...',
+      showCancelButton: true,
+      confirmButtonText: 'Submit',
+      confirmButtonColor: '#1a1612',
+      cancelButtonColor: '#5a5248',
+      background: '#faf7f2',
+      color: '#1a1612',
+    });
+
+    if (!isConfirmed) return;
+
     setUpdatingStatus(prev => ({ ...prev, [employeeId]: newStatus }));
     
     try {
       if (onMarkAttendance) {
-        await onMarkAttendance(employeeId, newStatus);
+        await onMarkAttendance(employeeId, newStatus, note);
         
         // Update local state immediately for better UX
         setLocalRows(prevRows => 
           prevRows.map(row => 
             row.employeeId === employeeId 
-              ? { ...row, status: newStatus }
+              ? { ...row, status: newStatus, note: note || undefined }
               : row
           )
         );
@@ -1209,6 +1230,11 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{r.employeeCode}</div>
+                    {r.note && (
+                      <div style={{ fontSize: 10, color: 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, fontStyle: 'italic', fontWeight: 600 }}>
+                        <span>📝</span> {r.note}
+                      </div>
+                    )}
                   </div>
                 </div></td>
                 <td><span className="time-tag">{r.checkInTime || '—'}</span></td>
@@ -1241,7 +1267,7 @@ function AttTable({ rows, title, loading, onMarkAttendance, showActions = true }
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => handleStatusUpdate(r.employeeId, 'present', r.status)} disabled={isUpdating} style={{ padding: '4px 8px', fontSize: 10, border: '1px solid var(--success)', background: r.status === 'present' ? 'var(--success)' : 'transparent', color: r.status === 'present' ? 'white' : 'var(--success)', borderRadius: 3, cursor: isUpdating ? 'not-allowed' : 'pointer', opacity: isUpdating ? 0.5 : 1, fontWeight: 600, minWidth: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Mark as Present">{isUpdating === 'present' ? '⏳' : 'P'}</button>
                       <button onClick={() => handleStatusUpdate(r.employeeId, 'half-day', r.status)} disabled={isUpdating} style={{ padding: '4px 8px', fontSize: 10, border: '1px solid var(--warning)', background: r.status === 'half-day' ? 'var(--warning)' : 'transparent', color: r.status === 'half-day' ? 'white' : 'var(--warning)', borderRadius: 3, cursor: isUpdating ? 'not-allowed' : 'pointer', opacity: isUpdating ? 0.5 : 1, fontWeight: 600, minWidth: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Mark as Half Day">{isUpdating === 'half-day' ? '⏳' : 'H'}</button>
-                      <button onClick={() => handleStatusUpdate(r.employeeId, 'absent', r.status)} disabled={isUpdating} style={{ padding: '4px 8px', fontSize: 10, border: '1px solid var(--danger)', background: r.status === 'absent' || !r.status ? 'var(--danger)' : 'transparent', color: r.status === 'absent' || !r.status ? 'white' : 'var(--danger)', borderRadius: 3, cursor: isUpdating ? 'not-allowed' : 'pointer', opacity: isUpdating ? 0.5 : 1, fontWeight: 600, minWidth: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Mark as Absent">{isUpdating === 'absent' ? '⏳' : 'A'}</button>
+                      <button onClick={() => handleStatusUpdate(r.employeeId, 'absent', r.status)} disabled={isUpdating || !!r.checkInTime} style={{ padding: '4px 8px', fontSize: 10, border: '1px solid var(--danger)', background: r.status === 'absent' || !r.status ? 'var(--danger)' : 'transparent', color: r.status === 'absent' || !r.status ? 'white' : 'var(--danger)', borderRadius: 3, cursor: (isUpdating || !!r.checkInTime) ? 'not-allowed' : 'pointer', opacity: (isUpdating || !!r.checkInTime) ? 0.4 : 1, fontWeight: 600, minWidth: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={r.checkInTime ? "Cannot mark checked-in employee as absent" : "Mark as Absent"}>{isUpdating === 'absent' ? '⏳' : 'A'}</button>
                       {r.checkInTime && !r.checkOutTime && (
                         <button onClick={() => handleCheckout(r.employeeId)} disabled={!!isUpdating} style={{ padding: '4px 8px', fontSize: 10, border: '1px solid var(--accent2)', background: 'transparent', color: 'var(--accent2)', borderRadius: 3, cursor: isUpdating ? 'not-allowed' : 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }} title="Force Checkout">{isUpdating === 'checkout' ? '⏳' : '⏏ CO'}</button>
                       )}
@@ -1275,18 +1301,34 @@ function MiniTable({ rows, onMarkAttendance, date, adminId }) {
       return;
     }
 
+    // Ask for note/remark (optional)
+    const { value: note, isConfirmed } = await Swal.fire({
+      title: `Mark as ${newStatus === 'present' ? 'Present' : newStatus === 'half-day' ? 'Half Day' : 'Absent'}`,
+      input: 'text',
+      inputLabel: 'Add Note/Remark (Optional)',
+      inputPlaceholder: 'e.g. Work from home, late permission...',
+      showCancelButton: true,
+      confirmButtonText: 'Submit',
+      confirmButtonColor: '#1a1612',
+      cancelButtonColor: '#5a5248',
+      background: '#faf7f2',
+      color: '#1a1612',
+    });
+
+    if (!isConfirmed) return;
+
     setUpdatingStatus(prev => ({ ...prev, [employeeId]: newStatus }));
     
     try {
-      console.log('Updating status:', { employeeId, date, newStatus });
-      await api.post('/attendance/mark', { employeeId, date, status: newStatus });
+      console.log('Updating status:', { employeeId, date, newStatus, note });
+      await api.post('/attendance/mark', { employeeId, date, status: newStatus, note });
       toast(`Successfully marked as ${newStatus}`, 2000, 'success');
       
       // Update local state immediately for better UX
       setLocalRows(prevRows => 
         prevRows.map(row => 
           row.employeeId === employeeId 
-            ? { ...row, status: newStatus }
+            ? { ...row, status: newStatus, note: note || undefined }
             : row
         )
       );
@@ -1333,6 +1375,11 @@ function MiniTable({ rows, onMarkAttendance, date, adminId }) {
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{r.employeeCode}</div>
+                    {r.note && (
+                      <div style={{ fontSize: 10, color: 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, fontStyle: 'italic', fontWeight: 600 }}>
+                        <span>📝</span> {r.note}
+                      </div>
+                    )}
                   </div>
                 </div>
               </td>
@@ -1352,7 +1399,7 @@ function MiniTable({ rows, onMarkAttendance, date, adminId }) {
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => handleStatusUpdate(r.employeeId, 'present', r.status)} disabled={isUpdating} style={{ padding: '3px 6px', fontSize: 9, border: '1px solid var(--success)', background: r.status === 'present' ? 'var(--success)' : 'transparent', color: r.status === 'present' ? 'white' : 'var(--success)', borderRadius: 3, cursor: isUpdating ? 'not-allowed' : 'pointer', opacity: isUpdating ? 0.5 : 1, fontWeight: 600, minWidth: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Mark as Present">{isUpdating === 'present' ? '⏳' : 'P'}</button>
                     <button onClick={() => handleStatusUpdate(r.employeeId, 'half-day', r.status)} disabled={isUpdating} style={{ padding: '3px 6px', fontSize: 9, border: '1px solid var(--warning)', background: r.status === 'half-day' ? 'var(--warning)' : 'transparent', color: r.status === 'half-day' ? 'white' : 'var(--warning)', borderRadius: 3, cursor: isUpdating ? 'not-allowed' : 'pointer', opacity: isUpdating ? 0.5 : 1, fontWeight: 600, minWidth: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Mark as Half Day">{isUpdating === 'half-day' ? '⏳' : 'H'}</button>
-                    <button onClick={() => handleStatusUpdate(r.employeeId, 'absent', r.status)} disabled={isUpdating} style={{ padding: '3px 6px', fontSize: 9, border: '1px solid var(--danger)', background: r.status === 'absent' || !r.status ? 'var(--danger)' : 'transparent', color: r.status === 'absent' || !r.status ? 'white' : 'var(--danger)', borderRadius: 3, cursor: isUpdating ? 'not-allowed' : 'pointer', opacity: isUpdating ? 0.5 : 1, fontWeight: 600, minWidth: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Mark as Absent">{isUpdating === 'absent' ? '⏳' : 'A'}</button>
+                    <button onClick={() => handleStatusUpdate(r.employeeId, 'absent', r.status)} disabled={isUpdating || !!r.checkInTime} style={{ padding: '3px 6px', fontSize: 9, border: '1px solid var(--danger)', background: r.status === 'absent' || !r.status ? 'var(--danger)' : 'transparent', color: r.status === 'absent' || !r.status ? 'white' : 'var(--danger)', borderRadius: 3, cursor: (isUpdating || !!r.checkInTime) ? 'not-allowed' : 'pointer', opacity: (isUpdating || !!r.checkInTime) ? 0.4 : 1, fontWeight: 600, minWidth: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={r.checkInTime ? "Cannot mark checked-in employee as absent" : "Mark as Absent"}>{isUpdating === 'absent' ? '⏳' : 'A'}</button>
                     {r.checkInTime && !r.checkOutTime && (
                       <button onClick={() => date && api.post('/attendance/force-checkout', { employeeId: r.employeeId, date }).then(() => { toast('Checkout done ✓', 2000, 'success'); onMarkAttendance && onMarkAttendance(); }).catch(e => toast(e.response?.data?.message || 'Error', 3000, 'error'))} style={{ padding: '3px 6px', fontSize: 9, border: '1px solid var(--accent2)', background: 'transparent', color: 'var(--accent2)', borderRadius: 3, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }} title="Force Checkout">⏏ CO</button>
                     )}
