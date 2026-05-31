@@ -181,7 +181,12 @@ function ProfilePanel({ onNavigate, onLogout, auth }) {
         </div>
         <div>
           <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--bg)' }}>{auth?.user?.name}</div>
-          <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{auth?.user?.email}</div>
+          {auth?.user?.email && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{auth?.user?.email}</div>}
+          {auth?.user?.phone && (
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2, fontFamily: 'DM Mono, monospace' }}>
+              📞 {auth?.user?.phone}
+            </div>
+          )}
           <div style={{ marginTop: 6 }}>
             <span style={{ background: 'var(--accent)', color: '#fff', padding: '2px 10px', borderRadius: 2, fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 700, textTransform: 'uppercase' }}>
               Admin
@@ -224,7 +229,7 @@ function ProfilePanel({ onNavigate, onLogout, auth }) {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>Help & Contact</div>
-              <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>Contact {superAdminInfo.name} on WhatsApp</div>
+              <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>Contact support on WhatsApp (9118091165)</div>
             </div>
             <ChevronRight size={16} color="var(--ink2)" />
           </div>
