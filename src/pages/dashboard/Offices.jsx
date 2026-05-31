@@ -87,6 +87,33 @@ export default function Offices() {
     });
   }, []);
 
+  // Handle manual Coordinate inputs
+  const handleCoordinateChange = (field, val) => {
+    setForm(f => {
+      const updated = { ...f, [field === 'lat' ? 'lat' : 'long']: val };
+      
+      const latVal = parseFloat(field === 'lat' ? val : updated.lat);
+      const lngVal = parseFloat(field === 'long' ? val : updated.long);
+      
+      if (!isNaN(latVal) && !isNaN(lngVal) && latVal >= -90 && latVal <= 90 && lngVal >= -180 && lngVal <= 180) {
+        setMarkerPos({ lat: latVal, lng: lngVal });
+        setMapCenter({ lat: latVal, lng: lngVal });
+        
+        if (window.google) {
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ location: { lat: latVal, lng: lngVal } }, (results, status) => {
+            if (status === 'OK' && results[0]) {
+              setForm(current => ({ ...current, address: results[0].formatted_address }));
+              if (searchRef.current) searchRef.current.value = results[0].formatted_address;
+            }
+          });
+        }
+      }
+      
+      return updated;
+    });
+  };
+
   // Use my current location
   const detectLocation = () => {
     if (!navigator.geolocation) return toast('GPS not supported');
@@ -296,13 +323,31 @@ export default function Offices() {
               )}
             </div>
 
-            {/* Lat/Long display */}
-            {markerPos && (
-              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--ink2)', display: 'flex', gap: 20 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} />Lat: <strong style={{ color: 'var(--ink)' }}>{form.lat}</strong></span>
-                <span>Long: <strong style={{ color: 'var(--ink)' }}>{form.long}</strong></span>
+            {/* Lat/Long Inputs */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Latitude *</label>
+                <input
+                  className="form-inp"
+                  type="number"
+                  step="any"
+                  value={form.lat || ''}
+                  onChange={e => handleCoordinateChange('lat', e.target.value)}
+                  placeholder="e.g. 28.6139"
+                />
               </div>
-            )}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Longitude *</label>
+                <input
+                  className="form-inp"
+                  type="number"
+                  step="any"
+                  value={form.long || ''}
+                  onChange={e => handleCoordinateChange('long', e.target.value)}
+                  placeholder="e.g. 77.2090"
+                />
+              </div>
+            </div>
 
             {/* Radius slider */}
             <div className="form-group">
